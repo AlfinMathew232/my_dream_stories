@@ -1,0 +1,88 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+
+// Services & Utils
+import 'services/auth_service.dart';
+import 'utils/app_theme.dart';
+
+// Screens
+import 'screens/splash_screen.dart';
+import 'screens/login_page.dart';
+import 'screens/register_page.dart';
+import 'screens/home_page.dart';
+import 'screens/select_category_page.dart';
+import 'screens/category_input_page.dart';
+import 'screens/character_background_page.dart';
+import 'screens/scene_structuring_page.dart';
+import 'screens/video_builder_page.dart';
+import 'screens/my_videos_page.dart';
+import 'screens/settings_page.dart';
+import 'screens/payment_page.dart';
+import 'screens/create_story_screen.dart';
+
+// Admin Screens
+import 'screens/admin/admin_dashboard.dart';
+import 'screens/admin/admin_manage_categories.dart';
+import 'screens/admin/admin_manage_characters.dart';
+import 'screens/admin/admin_manage_backgrounds.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthService()),
+        // Add other providers here (VideoProvider, etc.)
+      ],
+      child: MaterialApp(
+        title: 'My Dream Stories',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        initialRoute: '/',
+        routes: {
+          '/': (_) => const SplashScreen(),
+          '/login': (_) => const LoginPage(),
+          '/register': (_) => const RegisterPage(),
+          '/home': (_) => const HomePage(),
+          '/select-category': (_) => const SelectCategoryPage(),
+          '/category-input': (ctx) {
+            final arg = ModalRoute.of(ctx)!.settings.arguments;
+            // Handle arguments safely
+            String key = '';
+            String name = '';
+            if (arg is Map) {
+              key = arg['categoryKey']?.toString() ?? '';
+              name = arg['categoryName']?.toString() ?? '';
+            } else if (arg is String) {
+              key = arg.toLowerCase();
+              name = arg;
+            }
+            return CategoryInputPage(categoryKey: key, categoryName: name);
+          },
+          '/character-background': (_) => const CharacterBackgroundPage(),
+          '/scene-structuring': (_) => const SceneStructuringPage(),
+          '/video-builder': (_) => const VideoBuilderPage(),
+          '/my-videos': (_) => const MyVideosPage(),
+          '/settings': (_) => const SettingsPage(),
+          '/payment': (_) => const PaymentPage(),
+          '/create-story': (_) => const CreateStoryScreen(),
+
+          // Admin
+          '/admin': (_) => const AdminDashboardPage(),
+          '/admin/categories': (_) => const AdminManageCategoriesPage(),
+          '/admin/characters': (_) => const AdminManageCharactersPage(),
+          '/admin/backgrounds': (_) => const AdminManageBackgroundsPage(),
+        },
+      ),
+    );
+  }
+}
