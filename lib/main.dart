@@ -12,9 +12,6 @@ import 'screens/login_page.dart';
 import 'screens/register_page.dart';
 import 'screens/home_page.dart';
 import 'screens/select_category_page.dart';
-import 'screens/category_input_page.dart';
-import 'screens/character_background_page.dart';
-import 'screens/scene_structuring_page.dart';
 import 'screens/video_builder_page.dart';
 import 'screens/my_videos_page.dart';
 import 'screens/settings_page.dart';
@@ -54,22 +51,6 @@ class MyApp extends StatelessWidget {
           '/register': (_) => const RegisterPage(),
           '/home': (_) => const HomePage(),
           '/select-category': (_) => const SelectCategoryPage(),
-          '/category-input': (ctx) {
-            final arg = ModalRoute.of(ctx)!.settings.arguments;
-            // Handle arguments safely
-            String key = '';
-            String name = '';
-            if (arg is Map) {
-              key = arg['categoryKey']?.toString() ?? '';
-              name = arg['categoryName']?.toString() ?? '';
-            } else if (arg is String) {
-              key = arg.toLowerCase();
-              name = arg;
-            }
-            return CategoryInputPage(categoryKey: key, categoryName: name);
-          },
-          '/character-background': (_) => const CharacterBackgroundPage(),
-          '/scene-structuring': (_) => const SceneStructuringPage(),
           '/video-builder': (_) => const VideoBuilderPage(),
           '/my-videos': (_) => const MyVideosPage(),
           '/settings': (_) => const SettingsPage(),

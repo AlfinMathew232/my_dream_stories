@@ -11,14 +11,27 @@ class CreateStoryScreen extends StatefulWidget {
 
 class _CreateStoryScreenState extends State<CreateStoryScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
   final _categoryController = TextEditingController();
   final _textController = TextEditingController();
   final _backgroundController = TextEditingController();
   final _charactersController = TextEditingController();
+  final _durationController = TextEditingController(text: "15");
 
   String _generatedPrompt = "";
   bool _isLoading = false;
   final GeminiService _geminiService = GeminiService();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map) {
+      if (_categoryController.text.isEmpty) {
+        _categoryController.text = args['categoryName'] ?? '';
+      }
+    }
+  }
 
   Future<void> _generatePrompt() async {
     if (!_formKey.currentState!.validate()) return;
@@ -52,10 +65,12 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _categoryController.dispose();
     _textController.dispose();
     _backgroundController.dispose();
     _charactersController.dispose();
+    _durationController.dispose();
     super.dispose();
   }
 
@@ -63,7 +78,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI Video Prompt Generator'),
+        title: const Text('New Video Details'),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
       ),
@@ -75,31 +90,54 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildTextField(
+                controller: _titleController,
+                label: 'Video Title',
+                hint: 'e.g., The Mystery of Mars',
+                icon: Icons.title,
+              ),
+              const SizedBox(height: 16),
+              _buildTextField(
                 controller: _categoryController,
                 label: 'Category',
-                hint: 'e.g., Fantasy, Sci-Fi',
+                hint: 'e.g., Teaching, Marketing',
                 icon: Icons.category,
               ),
               const SizedBox(height: 16),
               _buildTextField(
                 controller: _textController,
-                label: 'Basic Text / Idea',
-                hint: 'Describe the core idea...',
+                label: 'Video Description / Idea',
+                hint: 'What is the video about?',
                 icon: Icons.description,
-                maxLines: 3,
+                maxLines: 4,
               ),
               const SizedBox(height: 16),
-              _buildTextField(
-                controller: _backgroundController,
-                label: 'Background',
-                hint: 'e.g., Dark castle, Sunny beach',
-                icon: Icons.landscape,
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildTextField(
+                      controller: _backgroundController,
+                      label: 'Background',
+                      hint: 'e.g., 3D Studio',
+                      icon: Icons.landscape,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildTextField(
+                      controller: _durationController,
+                      label: 'Duration (sec)',
+                      hint: '10-30',
+                      icon: Icons.timer,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               _buildTextField(
                 controller: _charactersController,
-                label: 'Characters',
-                hint: 'e.g., A brave knight, A happy dog',
+                label: 'Characters (Optional)',
+                hint: 'e.g., A robot teacher',
                 icon: Icons.people,
               ),
               const SizedBox(height: 24),
@@ -109,50 +147,80 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.auto_awesome),
-                label: Text(_isLoading ? 'Generating...' : 'Generate Prompt'),
+                label: Text(
+                  _isLoading ? 'Processing AI...' : 'Generate AI Prompt',
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  textStyle: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
               if (_generatedPrompt.isNotEmpty) ...[
                 const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 16),
-                const Text(
-                  'Generated Video Prompt:',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey[300]!),
-                  ),
-                  child: SelectableText(
-                    _generatedPrompt,
-                    style: const TextStyle(fontSize: 16, height: 1.5),
-                  ),
-                ),
+                _buildPromptResult(),
               ],
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPromptResult() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'AI-Optimized Video Prompt:',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryColor,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+          ),
+          child: SelectableText(
+            _generatedPrompt,
+            style: const TextStyle(fontSize: 15, height: 1.6),
+          ),
+        ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: () {
+            // Navigate to generation status page
+            Navigator.pushNamed(
+              context,
+              '/video-builder',
+              arguments: {
+                'prompt': _generatedPrompt,
+                'title': _titleController.text,
+              },
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green[700],
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Start Video Generation'),
+        ),
+      ],
     );
   }
 
@@ -162,10 +230,12 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     required String hint,
     required IconData icon,
     int maxLines = 1,
+    TextInputType keyboardType = TextInputType.text,
   }) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
+      keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -175,6 +245,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
         fillColor: Colors.grey[50],
       ),
       validator: (value) {
+        if (label.contains('Optional')) return null;
         if (value == null || value.isEmpty) {
           return 'Please enter $label';
         }

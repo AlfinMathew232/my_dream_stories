@@ -46,7 +46,7 @@ class SelectCategoryPage extends StatelessWidget {
                         onTap: () {
                           Navigator.pushNamed(
                             context,
-                            '/category-input',
+                            '/create-story',
                             arguments: {
                               'categoryKey': (cat['name'] as String)
                                   .toLowerCase(),
