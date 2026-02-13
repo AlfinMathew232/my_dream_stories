@@ -31,7 +31,7 @@ class SettingsPage extends StatelessWidget {
                       icon: Icons.person_outline,
                       title: 'Edit Profile',
                       onTap: () {
-                        // Navigate to edit profile
+                        Navigator.pushNamed(context, '/edit-profile');
                       },
                     ),
                     _buildSettingItem(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/database_service.dart';
 import '../utils/app_theme.dart';
 
 class LoginPage extends StatefulWidget {
@@ -14,6 +15,7 @@ class _LoginPageState extends State<LoginPage> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _isPasswordVisible = false;
 
   @override
   void dispose() {
@@ -45,7 +47,21 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     } else {
-      Navigator.of(context).pushReplacementNamed('/home');
+      // Fetch user profile to check role
+      final currentUser = authService.user;
+      if (currentUser != null) {
+        final userModel = await DatabaseService().getUser(currentUser.uid);
+        if (!mounted) return;
+
+        if (userModel?.role == 'admin') {
+          Navigator.of(context).pushReplacementNamed('/admin');
+        } else {
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      } else {
+        // Fallback if user is null for some reason
+        Navigator.of(context).pushReplacementNamed('/home');
+      }
     }
   }
 
@@ -112,10 +128,22 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _passCtrl,
-                        obscureText: true,
-                        decoration: const InputDecoration(
+                        obscureText: !_isPasswordVisible,
+                        decoration: InputDecoration(
                           labelText: 'Password',
-                          prefixIcon: Icon(Icons.lock_outline),
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _isPasswordVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _isPasswordVisible = !_isPasswordVisible;
+                              });
+                            },
+                          ),
                         ),
                         validator: (v) => (v != null && v.length >= 6)
                             ? null

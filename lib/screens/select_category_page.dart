@@ -1,17 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/app_theme.dart';
 
 class SelectCategoryPage extends StatelessWidget {
   const SelectCategoryPage({super.key});
-
-  final List<Map<String, dynamic>> categories = const [
-    {'name': 'Marketing', 'icon': Icons.campaign, 'color': Colors.blue},
-    {'name': 'Dream Story', 'icon': Icons.auto_awesome, 'color': Colors.purple},
-    {'name': 'Teaching', 'icon': Icons.school, 'color': Colors.orange},
-    {'name': 'Motivational', 'icon': Icons.fitness_center, 'color': Colors.red},
-    {'name': 'Kids Story', 'icon': Icons.child_care, 'color': Colors.green},
-    {'name': 'Travel', 'icon': Icons.flight, 'color': Colors.teal},
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -28,80 +20,103 @@ class SelectCategoryPage extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Expanded(
-              child: GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 1.1,
-                ),
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final cat = categories[index];
-                  return Hero(
-                    tag: 'category_${cat['name']}',
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            '/create-story',
-                            arguments: {
-                              'categoryKey': (cat['name'] as String)
-                                  .toLowerCase(),
-                              'categoryName': cat['name'],
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('categories')
+                    .orderBy('createdAt', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(
+                      child: Text('No categories available yet.'),
+                    );
+                  }
+
+                  final docs = snapshot.data!.docs;
+
+                  return GridView.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 1.1,
+                        ),
+                    itemCount: docs.length,
+                    itemBuilder: (context, index) {
+                      final cat = docs[index].data() as Map<String, dynamic>;
+                      final catName = cat['name'] ?? 'Untitled';
+                      // We can fall back to a default icon/color since they aren't in DB yet
+                      // Or we could update createCategory to include them
+                      const icon = Icons.auto_awesome;
+                      final color = AppTheme.primaryColor;
+
+                      return Hero(
+                        tag: 'category_$catName',
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.pushNamed(
+                                context,
+                                '/create-story',
+                                arguments: {
+                                  'categoryKey': catName.toLowerCase(),
+                                  'categoryName': catName,
+                                },
+                              );
                             },
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(24),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
                             borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: (cat['color'] as Color).withOpacity(0.2),
-                              width: 2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (cat['color'] as Color).withOpacity(0.1),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: (cat['color'] as Color).withOpacity(
-                                    0.1,
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: color.withOpacity(0.2),
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: color.withOpacity(0.1),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
                                   ),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  cat['icon'],
-                                  size: 32,
-                                  color: cat['color'],
-                                ),
+                                ],
                               ),
-                              const SizedBox(height: 12),
-                              Text(
-                                cat['name'],
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimary,
-                                ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: color.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      icon,
+                                      size: 32,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    catName,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   );
                 },
               ),

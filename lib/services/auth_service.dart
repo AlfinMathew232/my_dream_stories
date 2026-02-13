@@ -68,6 +68,8 @@ class AuthService extends ChangeNotifier {
       return null;
     } on FirebaseAuthException catch (e) {
       return e.message;
+    } catch (e) {
+      return 'An unexpected error occurred: ${e.toString()}';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -92,6 +94,21 @@ class AuthService extends ChangeNotifier {
       await _user!.reload();
       _user = _auth.currentUser;
       notifyListeners();
+    }
+  }
+
+  // Update Password
+  Future<String?> updatePassword(String newPassword) async {
+    try {
+      if (_user != null) {
+        await _user!.updatePassword(newPassword);
+        return null;
+      }
+      return "User not found";
+    } on FirebaseAuthException catch (e) {
+      return e.message;
+    } catch (e) {
+      return e.toString();
     }
   }
 }

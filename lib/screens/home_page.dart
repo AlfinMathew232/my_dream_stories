@@ -75,14 +75,6 @@ class _HomePageState extends State<HomePage> {
                         color: Colors.grey,
                         onTap: () => Navigator.pushNamed(context, '/settings'),
                       ),
-                      _HomeCard(
-                        title: 'AI Prompts',
-                        subtitle: 'Generate Ideas',
-                        icon: Icons.auto_awesome,
-                        color: Colors.purple,
-                        onTap: () =>
-                            Navigator.pushNamed(context, '/create-story'),
-                      ),
                     ],
                   ),
                 ),

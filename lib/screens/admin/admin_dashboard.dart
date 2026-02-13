@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
+import '../../services/database_service.dart';
 import '../../utils/app_theme.dart';
 
 class AdminDashboardPage extends StatelessWidget {
@@ -32,7 +33,19 @@ class AdminDashboardPage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildStatCard(),
+            FutureBuilder<Map<String, dynamic>>(
+              future: DatabaseService().getDashboardStats(),
+              builder: (context, snapshot) {
+                final stats =
+                    snapshot.data ??
+                    {
+                      'totalUsers': '-',
+                      'proMembers': '-',
+                      'videosCreated': '-',
+                    };
+                return _buildStatCard(stats);
+              },
+            ),
             const SizedBox(height: 24),
             Expanded(
               child: GridView.count(
@@ -65,7 +78,14 @@ class AdminDashboardPage extends StatelessWidget {
                     title: 'Users & Subscriptions',
                     icon: Icons.supervised_user_circle,
                     color: Colors.orange,
-                    onTap: () {}, // Future impl
+                    onTap: () => Navigator.pushNamed(context, '/admin/users'),
+                  ),
+                  _AdminCard(
+                    title: 'Revenue Analysis',
+                    icon: Icons.analytics,
+                    color: Colors.green,
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/admin/analysis'),
                   ),
                 ],
               ),
@@ -76,7 +96,7 @@ class AdminDashboardPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard() {
+  Widget _buildStatCard(Map<String, dynamic> stats) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -85,9 +105,9 @@ class AdminDashboardPage extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildStatItem('Total Users', '125'),
-            _buildStatItem('Pro Members', '42'),
-            _buildStatItem('Videos Created', '1.2k'),
+            _buildStatItem('Total Users', stats['totalUsers'].toString()),
+            _buildStatItem('Pro Members', stats['proMembers'].toString()),
+            _buildStatItem('Videos Created', stats['videosCreated'].toString()),
           ],
         ),
       ),

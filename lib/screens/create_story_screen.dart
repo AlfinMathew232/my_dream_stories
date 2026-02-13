@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/gemini_service.dart';
 import '../utils/app_theme.dart';
 
@@ -14,9 +15,10 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   final _titleController = TextEditingController();
   final _categoryController = TextEditingController();
   final _textController = TextEditingController();
-  final _backgroundController = TextEditingController();
-  final _charactersController = TextEditingController();
-  final _durationController = TextEditingController(text: "15");
+
+  String? _selectedBackground;
+  String? _selectedCharacter;
+  double _duration = 15.0; // Changed from Controller to double
 
   String _generatedPrompt = "";
   bool _isLoading = false;
@@ -45,8 +47,8 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       final prompt = await _geminiService.generateVideoPrompt(
         category: _categoryController.text,
         basicText: _textController.text,
-        background: _backgroundController.text,
-        characters: _charactersController.text,
+        background: _selectedBackground ?? '',
+        characters: _selectedCharacter ?? '',
       );
 
       setState(() {
@@ -68,9 +70,6 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     _titleController.dispose();
     _categoryController.dispose();
     _textController.dispose();
-    _backgroundController.dispose();
-    _charactersController.dispose();
-    _durationController.dispose();
     super.dispose();
   }
 
@@ -101,6 +100,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                 label: 'Category',
                 hint: 'e.g., Teaching, Marketing',
                 icon: Icons.category,
+                readOnly: true,
               ),
               const SizedBox(height: 16),
               _buildTextField(
@@ -111,59 +111,67 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                 maxLines: 4,
               ),
               const SizedBox(height: 16),
+              _buildFirestoreDropdown(
+                collection: 'backgrounds',
+                label: 'Background',
+                icon: Icons.landscape,
+                value: _selectedBackground,
+                onChanged: (v) => setState(() => _selectedBackground = v),
+              ),
+              const SizedBox(height: 24),
+              _buildDurationSelector(),
+              const SizedBox(height: 24),
+              _buildFirestoreDropdown(
+                collection: 'characters',
+                label: 'Characters',
+                icon: Icons.people,
+                value: _selectedCharacter,
+                onChanged: (v) => setState(() => _selectedCharacter = v),
+              ),
+              const SizedBox(height: 32),
               Row(
                 children: [
                   Expanded(
-                    child: _buildTextField(
-                      controller: _backgroundController,
-                      label: 'Background',
-                      hint: 'e.g., 3D Studio',
-                      icon: Icons.landscape,
+                    child: ElevatedButton.icon(
+                      onPressed: _isLoading ? null : _generatePrompt,
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.auto_awesome),
+                      label: Text(_isLoading ? 'AI...' : 'Generate AI Prompt'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: _buildTextField(
-                      controller: _durationController,
-                      label: 'Duration (sec)',
-                      hint: '10-30',
-                      icon: Icons.timer,
-                      keyboardType: TextInputType.number,
+                    child: OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _createDirectly,
+                      icon: const Icon(Icons.bolt),
+                      label: const Text('Create Directly'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: const BorderSide(color: Colors.green),
+                        foregroundColor: Colors.green[700],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 16),
-              _buildTextField(
-                controller: _charactersController,
-                label: 'Characters (Optional)',
-                hint: 'e.g., A robot teacher',
-                icon: Icons.people,
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: _isLoading ? null : _generatePrompt,
-                icon: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.auto_awesome),
-                label: Text(
-                  _isLoading ? 'Processing AI...' : 'Generate AI Prompt',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
               ),
               if (_generatedPrompt.isNotEmpty) ...[
                 const SizedBox(height: 24),
@@ -224,6 +232,47 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     );
   }
 
+  Widget _buildFirestoreDropdown({
+    required String collection,
+    required String label,
+    required IconData icon,
+    required String? value,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection(collection)
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        List<DropdownMenuItem<String>> items = [];
+        if (snapshot.hasData) {
+          items = snapshot.data!.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final name = data['name'] ?? 'Untitled';
+            return DropdownMenuItem<String>(value: name, child: Text(name));
+          }).toList();
+        }
+
+        return DropdownButtonFormField<String>(
+          value: value,
+          onChanged: onChanged,
+          items: items,
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: Icon(icon, color: AppTheme.primaryColor),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+          hint: Text('Select $label'),
+          validator: (v) =>
+              (v == null || v.isEmpty) ? 'Please select a $label' : null,
+        );
+      },
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -231,11 +280,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     required IconData icon,
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
+    bool readOnly = false,
   }) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      readOnly: readOnly,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -250,6 +301,71 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           return 'Please enter $label';
         }
         return null;
+      },
+    );
+  }
+
+  Widget _buildDurationSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Video Duration',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '${_duration.round()} Seconds',
+                style: const TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Slider(
+          value: _duration,
+          min: 10,
+          max: 30,
+          divisions: 20,
+          activeColor: AppTheme.primaryColor,
+          label: '${_duration.round()}s',
+          onChanged: (val) => setState(() => _duration = val),
+        ),
+      ],
+    );
+  }
+
+  void _createDirectly() {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedBackground == null || _selectedCharacter == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select background and characters'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.pushNamed(
+      context,
+      '/video-builder',
+      arguments: {
+        'prompt': _textController.text, // Use raw text as prompt
+        'title': _titleController.text,
+        'background': _selectedBackground,
+        'character': _selectedCharacter,
+        'duration': _duration.round(),
       },
     );
   }

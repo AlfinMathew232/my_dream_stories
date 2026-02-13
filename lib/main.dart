@@ -23,6 +23,9 @@ import 'screens/admin/admin_dashboard.dart';
 import 'screens/admin/admin_manage_categories.dart';
 import 'screens/admin/admin_manage_characters.dart';
 import 'screens/admin/admin_manage_backgrounds.dart';
+import 'screens/admin/admin_user_list.dart';
+import 'screens/admin/admin_analysis_page.dart';
+import 'screens/edit_profile_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,6 +65,9 @@ class MyApp extends StatelessWidget {
           '/admin/categories': (_) => const AdminManageCategoriesPage(),
           '/admin/characters': (_) => const AdminManageCharactersPage(),
           '/admin/backgrounds': (_) => const AdminManageBackgroundsPage(),
+          '/admin/users': (_) => const AdminUserListPage(),
+          '/admin/analysis': (_) => const AdminAnalysisPage(),
+          '/edit-profile': (_) => const EditProfilePage(),
         },
       ),
     );

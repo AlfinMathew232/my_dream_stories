@@ -57,13 +57,29 @@ class _PaymentPageState extends State<PaymentPage> {
 
     // Success
     try {
-      await FirebaseFirestore.instance
+      final batch = FirebaseFirestore.instance.batch();
+      final userRef = FirebaseFirestore.instance
           .collection('users')
-          .doc(user.uid)
-          .update({
-            'isPro': true,
-            'subscriptionExpiry': DateTime.now().add(const Duration(days: 365)),
-          });
+          .doc(user.uid);
+      final transRef = FirebaseFirestore.instance
+          .collection('transactions')
+          .doc();
+
+      batch.update(userRef, {
+        'isPro': true,
+        'subscriptionExpiry': DateTime.now().add(const Duration(days: 365)),
+      });
+
+      batch.set(transRef, {
+        'userId': user.uid,
+        'userEmail': user.email,
+        'amount': 500,
+        'currency': 'INR',
+        'timestamp': FieldValue.serverTimestamp(),
+        'type': 'pro_upgrade',
+      });
+
+      await batch.commit();
 
       if (mounted) {
         showDialog(
