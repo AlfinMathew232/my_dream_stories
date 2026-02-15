@@ -17,6 +17,7 @@ import 'screens/my_videos_page.dart';
 import 'screens/settings_page.dart';
 import 'screens/payment_page.dart';
 import 'screens/create_story_screen.dart';
+import 'screens/prompt_review_screen.dart';
 
 // Admin Screens
 import 'screens/admin/admin_dashboard.dart';
@@ -59,6 +60,7 @@ class MyApp extends StatelessWidget {
           '/settings': (_) => const SettingsPage(),
           '/payment': (_) => const PaymentPage(),
           '/create-story': (_) => const CreateStoryScreen(),
+          '/prompt-review': (_) => const PromptReviewScreen(),
 
           // Admin
           '/admin': (_) => const AdminDashboardPage(),

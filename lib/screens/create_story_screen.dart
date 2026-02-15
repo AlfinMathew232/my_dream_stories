@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/gemini_service.dart';
+import '../services/video_service.dart';
 import '../utils/app_theme.dart';
 
 class CreateStoryScreen extends StatefulWidget {
@@ -15,14 +17,23 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   final _titleController = TextEditingController();
   final _categoryController = TextEditingController();
   final _textController = TextEditingController();
+  final _promptController = TextEditingController();
+  final _manualBackgroundController = TextEditingController();
+  final _manualCharacterController = TextEditingController();
 
+  List<Map<String, dynamic>> _selectedCharacters =
+      []; // { 'name': String, 'quantity': int }
   String? _selectedBackground;
-  String? _selectedCharacter;
-  double _duration = 15.0; // Changed from Controller to double
+  String? _selectedCategory;
+  String _selectedRatio = "1280:720";
+  bool _useManualBackground = false;
+  bool _useManualCharacter = false;
 
-  String _generatedPrompt = "";
+  double _duration = 10.0; // Fixed assertion error (must be within [5, 10])
+
   bool _isLoading = false;
   final GeminiService _geminiService = GeminiService();
+  final VideoService _videoService = VideoService();
 
   @override
   void didChangeDependencies() {
@@ -40,21 +51,95 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
     setState(() {
       _isLoading = true;
-      _generatedPrompt = "";
+      _promptController.clear();
     });
 
     try {
+      // Get current user
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not logged in');
+      }
+
+      // Check for duplicate title
+      final isDuplicate = await _videoService.checkDuplicateTitle(
+        user.uid,
+        _titleController.text.trim(),
+      );
+
+      if (isDuplicate) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'You already have a video with the title "${_titleController.text}". Please use a different title.',
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
+      String charInfo = "";
+      if (_useManualCharacter) {
+        charInfo = _manualCharacterController.text;
+      } else {
+        charInfo = _selectedCharacters
+            .map((c) => "${c['name']} (Quantity: ${c['quantity']})")
+            .join(", ");
+      }
+
+      String bgInfo = _useManualBackground
+          ? _manualBackgroundController.text
+          : (_selectedBackground ?? '');
+
       final prompt = await _geminiService.generateVideoPrompt(
         category: _categoryController.text,
         basicText: _textController.text,
-        background: _selectedBackground ?? '',
-        characters: _selectedCharacter ?? '',
+        background: bgInfo,
+        characters: charInfo,
+        videoTitle: _titleController.text,
+        duration: _duration.round(),
+      );
+
+      print("✅ Gemini Response Received:");
+      print("Prompt length: ${prompt.length} characters");
+      print(
+        "Prompt preview: ${prompt.substring(0, prompt.length > 100 ? 100 : prompt.length)}...",
       );
 
       setState(() {
-        _generatedPrompt = prompt;
+        _promptController.text = prompt;
       });
+
+      // Navigate to prompt review screen
+      if (mounted) {
+        Navigator.pushNamed(
+          context,
+          '/prompt-review',
+          arguments: {
+            'prompt': prompt,
+            'title': _titleController.text,
+            'category': _categoryController.text,
+            'description': _textController.text,
+            'duration': _duration.round(),
+            'ratio': _selectedRatio,
+            'background': _useManualBackground
+                ? _manualBackgroundController.text
+                : (_selectedBackground ?? ''),
+            'characters': _useManualCharacter
+                ? _manualCharacterController.text
+                : _selectedCharacters
+                      .map((c) => "${c['name']} (${c['quantity']})")
+                      .join(", "),
+            'seed': DateTime.now().millisecondsSinceEpoch % 1000000000,
+          },
+        );
+      }
     } catch (e) {
+      print("❌ Error generating prompt: $e");
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
@@ -70,6 +155,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     _titleController.dispose();
     _categoryController.dispose();
     _textController.dispose();
+    _promptController.dispose();
+    _manualBackgroundController.dispose();
+    _manualCharacterController.dispose();
     super.dispose();
   }
 
@@ -95,12 +183,17 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                 icon: Icons.title,
               ),
               const SizedBox(height: 16),
-              _buildTextField(
-                controller: _categoryController,
+              _buildFirestoreDropdown(
+                collection: 'categories',
                 label: 'Category',
-                hint: 'e.g., Teaching, Marketing',
                 icon: Icons.category,
-                readOnly: true,
+                value: _selectedCategory,
+                onChanged: (v) {
+                  setState(() {
+                    _selectedCategory = v;
+                    if (v != null) _categoryController.text = v;
+                  });
+                },
               ),
               const SizedBox(height: 16),
               _buildTextField(
@@ -111,23 +204,13 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                 maxLines: 4,
               ),
               const SizedBox(height: 16),
-              _buildFirestoreDropdown(
-                collection: 'backgrounds',
-                label: 'Background',
-                icon: Icons.landscape,
-                value: _selectedBackground,
-                onChanged: (v) => setState(() => _selectedBackground = v),
-              ),
+              _buildBackgroundSection(),
               const SizedBox(height: 24),
               _buildDurationSelector(),
               const SizedBox(height: 24),
-              _buildFirestoreDropdown(
-                collection: 'characters',
-                label: 'Characters',
-                icon: Icons.people,
-                value: _selectedCharacter,
-                onChanged: (v) => setState(() => _selectedCharacter = v),
-              ),
+              _buildRatioSelector(),
+              const SizedBox(height: 24),
+              _buildCharactersSection(),
               const SizedBox(height: 32),
               Row(
                 children: [
@@ -173,7 +256,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                   ),
                 ],
               ),
-              if (_generatedPrompt.isNotEmpty) ...[
+              if (_promptController.text.isNotEmpty) ...[
                 const SizedBox(height: 24),
                 _buildPromptResult(),
               ],
@@ -184,12 +267,163 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     );
   }
 
+  Widget _buildBackgroundSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Background',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            TextButton.icon(
+              onPressed: () =>
+                  setState(() => _useManualBackground = !_useManualBackground),
+              icon: Icon(_useManualBackground ? Icons.list : Icons.edit),
+              label: Text(_useManualBackground ? 'Predefined' : 'Manual'),
+            ),
+          ],
+        ),
+        if (_useManualBackground)
+          _buildTextField(
+            controller: _manualBackgroundController,
+            label: 'Describe Background',
+            hint: 'e.g., A futuristic underwater city with neon lights',
+            icon: Icons.landscape,
+          )
+        else
+          _buildFirestoreDropdown(
+            collection: 'backgrounds',
+            label: 'Select Background',
+            icon: Icons.landscape,
+            value: _selectedBackground,
+            onChanged: (v) => setState(() => _selectedBackground = v),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCharactersSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Characters',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            TextButton.icon(
+              onPressed: () =>
+                  setState(() => _useManualCharacter = !_useManualCharacter),
+              icon: Icon(_useManualCharacter ? Icons.list : Icons.edit),
+              label: Text(_useManualCharacter ? 'Predefined' : 'Manual'),
+            ),
+          ],
+        ),
+        if (_useManualCharacter)
+          _buildTextField(
+            controller: _manualCharacterController,
+            label: 'Describe Characters',
+            hint: 'e.g., A small robot and its pilot',
+            icon: Icons.people,
+            maxLines: 2,
+          )
+        else ...[
+          _buildFirestoreDropdown(
+            collection: 'characters',
+            label: 'Add Character',
+            icon: Icons.person_add,
+            value: null,
+            onChanged: (v) {
+              if (v != null) {
+                setState(() {
+                  final index = _selectedCharacters.indexWhere(
+                    (c) => c['name'] == v,
+                  );
+                  if (index != -1) {
+                    _selectedCharacters[index]['quantity']++;
+                  } else {
+                    _selectedCharacters.add({'name': v, 'quantity': 1});
+                  }
+                });
+              }
+            },
+          ),
+          if (_selectedCharacters.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ..._selectedCharacters.map((char) {
+              return Card(
+                elevation: 0,
+                color: Colors.grey[100],
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          char['name'],
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            if (char['quantity'] > 1) {
+                              char['quantity']--;
+                            } else {
+                              _selectedCharacters.remove(char);
+                            }
+                          });
+                        },
+                        icon: const Icon(Icons.remove_circle_outline, size: 20),
+                        color: Colors.red[400],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          '${char['quantity']}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          setState(() {
+                            char['quantity']++;
+                          });
+                        },
+                        icon: const Icon(Icons.add_circle_outline, size: 20),
+                        color: Colors.green[400],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ],
+        ],
+      ],
+    );
+  }
+
   Widget _buildPromptResult() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Text(
-          'AI-Optimized Video Prompt:',
+          'AI-Optimized Video Prompt (Editable):',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -197,17 +431,16 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+        TextFormField(
+          controller: _promptController,
+          maxLines: 8,
+          decoration: InputDecoration(
+            hintText: 'Review and edit your video prompt here...',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: AppTheme.primaryColor.withOpacity(0.05),
           ),
-          child: SelectableText(
-            _generatedPrompt,
-            style: const TextStyle(fontSize: 15, height: 1.6),
-          ),
+          style: const TextStyle(fontSize: 15, height: 1.6),
         ),
         const SizedBox(height: 16),
         ElevatedButton(
@@ -217,14 +450,29 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
               context,
               '/video-builder',
               arguments: {
-                'prompt': _generatedPrompt,
+                'prompt': _promptController.text,
                 'title': _titleController.text,
+                'background': _useManualBackground
+                    ? _manualBackgroundController.text
+                    : (_selectedBackground ?? ''),
+                'characters': _useManualCharacter
+                    ? _manualCharacterController.text
+                    : _selectedCharacters
+                          .map((c) => "${c['name']} (${c['quantity']})")
+                          .join(", "),
+                'duration': _duration.round(),
+                'ratio': _selectedRatio,
+                'seed': DateTime.now().millisecondsSinceEpoch % 1000000000,
               },
             );
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green[700],
             foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           child: const Text('Start Video Generation'),
         ),
@@ -306,41 +554,37 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   }
 
   Widget _buildDurationSelector() {
+    final durations = [5, 8, 10];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text(
+          'Video Duration',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 12),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Video Duration',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '${_duration.round()} Seconds',
-                style: const TextStyle(
-                  color: AppTheme.primaryColor,
+          children: durations.map((d) {
+            final isSelected = _duration.round() == d;
+            return Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: ChoiceChip(
+                label: Text('${d}s'),
+                selected: isSelected,
+                selectedColor: AppTheme.primaryColor,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : Colors.black,
                   fontWeight: FontWeight.bold,
                 ),
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _duration = d.toDouble());
+                  }
+                },
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Slider(
-          value: _duration,
-          min: 10,
-          max: 30,
-          divisions: 20,
-          activeColor: AppTheme.primaryColor,
-          label: '${_duration.round()}s',
-          onChanged: (val) => setState(() => _duration = val),
+            );
+          }).toList(),
         ),
       ],
     );
@@ -348,11 +592,28 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
 
   void _createDirectly() {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedBackground == null || _selectedCharacter == null) {
+
+    String bg = _useManualBackground
+        ? _manualBackgroundController.text
+        : (_selectedBackground ?? '');
+    String charInfo = "";
+    if (_useManualCharacter) {
+      charInfo = _manualCharacterController.text;
+    } else {
+      if (_selectedCharacters.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select at least one character')),
+        );
+        return;
+      }
+      charInfo = _selectedCharacters
+          .map((c) => "${c['name']} (${c['quantity']})")
+          .join(", ");
+    }
+
+    if (bg.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select background and characters'),
-        ),
+        const SnackBar(content: Text('Please specify a background')),
       );
       return;
     }
@@ -363,10 +624,49 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       arguments: {
         'prompt': _textController.text, // Use raw text as prompt
         'title': _titleController.text,
-        'background': _selectedBackground,
-        'character': _selectedCharacter,
+        'background': bg,
+        'characters': charInfo,
         'duration': _duration.round(),
+        'ratio': _selectedRatio,
+        'seed': DateTime.now().millisecondsSinceEpoch % 1000000000,
       },
+    );
+  }
+
+  Widget _buildRatioSelector() {
+    final ratios = [
+      {'label': '16:9 (Landscape)', 'value': '1280:720'},
+      {'label': '9:16 (Portrait)', 'value': '720:1280'},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Aspect Ratio',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedRatio,
+          onChanged: (v) => setState(() => _selectedRatio = v!),
+          items: ratios.map((r) {
+            return DropdownMenuItem(
+              value: r['value'],
+              child: Text(r['label']!),
+            );
+          }).toList(),
+          decoration: InputDecoration(
+            prefixIcon: const Icon(
+              Icons.aspect_ratio,
+              color: AppTheme.primaryColor,
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            filled: true,
+            fillColor: Colors.grey[50],
+          ),
+        ),
+      ],
     );
   }
 }
