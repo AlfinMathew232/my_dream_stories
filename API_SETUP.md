@@ -4,177 +4,138 @@ This guide provides step-by-step instructions for obtaining the required API key
 
 ## Overview
 
-The app requires three types of API keys:
-1. **Speech-to-Text** - For converting voice narration to text
-2. **Story Generation** - For creating stories from text prompts
-3. **Text+Image to Video** - For generating videos from text descriptions and images
+The app requires two main API services:
+1. **Google Gemini API** - For AI story generation AND video generation (Veo 3.1)
+2. **Razorpay** - For payment processing
 
 ---
 
-## 1. Speech-to-Text API Setup
+## 1. Google Gemini API Setup (Required)
 
-### Option A: Google Cloud Speech-to-Text (Recommended)
+Google's Gemini API provides both AI story generation and video generation capabilities through the Veo 3.1 Fast model.
 
-Google Cloud Speech-to-Text provides high-quality speech recognition with support for multiple languages.
+### Steps:
 
-#### Steps:
-
-1. **Create a Google Cloud Project**
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Click "Select a project" → "New Project"
-   - Enter a project name (e.g., "my-dream-stories")
-   - Click "Create"
-
-2. **Enable the Speech-to-Text API**
-   - In the Google Cloud Console, go to [APIs & Services > Library](https://console.cloud.google.com/apis/library)
-   - Search for "Speech-to-Text API"
-   - Click on it and press "Enable"
-
-3. **Create API Credentials**
-   - Go to [APIs & Services > Credentials](https://console.cloud.google.com/apis/credentials)
-   - Click "Create Credentials" → "API key"
-   - Copy the generated API key
-   - **(Important)** Click "Restrict Key" to add restrictions:
-     - Under "API restrictions", select "Restrict key"
-     - Choose "Cloud Speech-to-Text API"
-     - Click "Save"
-
-4. **Set up Billing**
-   - Speech-to-Text requires a billing account
-   - Go to [Billing](https://console.cloud.google.com/billing)
-   - Link a billing account (Google offers free credits for new users)
-
-5. **Add the API Key to your app**
-   - Open `lib/config/api_config.dart`
-   - Replace `YOUR_SPEECH_TO_TEXT_API_KEY_HERE` with your API key
-
-**Pricing**: Free tier includes 60 minutes per month. See [pricing details](https://cloud.google.com/speech-to-text/pricing).
-
-### Option B: Alternative Services
-
-- **Azure Speech Services**: https://azure.microsoft.com/en-us/services/cognitive-services/speech-to-text/
-- **Amazon Transcribe**: https://aws.amazon.com/transcribe/
-- **AssemblyAI**: https://www.assemblyai.com/
-
----
-
-## 2. Story Generation API Setup
-
-### Option A: Google Gemini API (Recommended for Free Tier)
-
-Google's Gemini AI offers generous free tier and excellent story generation capabilities.
-
-#### Steps:
-
-1. **Get a Gemini API Key**
+1. **Get Gemini API Key(s)**
    - Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
    - Click "Get API key" or "Create API key"
    - Select your Google Cloud project (or create a new one)
    - Copy the generated API key
+   
+   **Option 1: Single Key (Simpler)**
+   - Use the same API key for both prompt generation and video generation
+   - Easier to manage but shares quota between both services
+   
+   **Option 2: Separate Keys (Better Quota Management)**
+   - Create two separate API keys:
+     - One for prompt/story generation
+     - One for video generation (Veo 3.1)
+   - Better quota isolation and monitoring
+   - Recommended for production use
 
-2. **Add the API Key to your app**
-   - Open `lib/config/api_config.dart`
-   - Replace `YOUR_STORY_GENERATION_API_KEY_HERE` with your API key
+2. **Add the API Key(s) to your app**
+   - Open `lib/api_keys.dart`
+   - Replace `YOUR_GEMINI_PROMPT_KEY_HERE` with your prompt generation key
+   - Replace `YOUR_GEMINI_VIDEO_KEY_HERE` with your video generation key
+   - (Or use the same key for both if you chose Option 1)
 
 **Pricing**: Free tier includes 60 requests per minute. See [pricing details](https://ai.google.dev/pricing).
 
-**API Endpoint**: Update the endpoint in `api_config.dart`:
-```dart
-static const String storyGenerationEndpoint = 'https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent';
+**What it's used for**:
+- **Story Generation**: Uses Gemini Pro model to enhance and create stories from user prompts
+- **Video Generation**: Uses Veo 3.1 Fast model to generate videos from text descriptions
+
+### Veo 3.1 Fast Model
+
+The Veo 3.1 Fast model is Google's latest video generation AI that creates high-quality videos from text prompts.
+
+**API Endpoint**: 
+```
+https://generativelanguage.googleapis.com/v1beta/models/veo-3.1-fast-generate-preview:predictLongRunning
 ```
 
-### Option B: OpenAI GPT
+**Features**:
+- Fast video generation (typically 30-120 seconds)
+- High-quality output
+- Text-to-video capabilities
+- Supports various aspect ratios (16:9, 9:16, 1:1)
 
-OpenAI's GPT models are excellent for creative story generation.
+**How it works**:
+1. Submit a text prompt describing the video you want
+2. Receive an operation name (e.g., "operations/abc123")
+3. Poll the operation status until completion
+4. Download the generated video using the provided URI
 
-#### Steps:
+**Example Request** (handled by `veo_service.dart`):
+```bash
+curl "${BASE_URL}/models/veo-3.1-fast-generate-preview:predictLongRunning" \
+  -H "x-goog-api-key: YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -X "POST" \
+  -d '{
+    "instances": [{
+        "prompt": "A close up of two people staring at a cryptic drawing on a wall"
+      }
+    ]
+  }'
+```
 
-1. **Create an OpenAI Account**
-   - Go to [OpenAI Platform](https://platform.openai.com/)
-   - Sign up or log in
+**Response**:
+```json
+{
+  "name": "operations/abc123xyz"
+}
+```
 
-2. **Add Payment Method**
-   - Go to [Billing](https://platform.openai.com/account/billing)
-   - Add a payment method (required for API access)
+**Polling for Status**:
+```bash
+curl "${BASE_URL}/operations/abc123xyz" \
+  -H "x-goog-api-key: YOUR_API_KEY"
+```
 
-3. **Create an API Key**
-   - Go to [API Keys](https://platform.openai.com/api-keys)
-   - Click "Create new secret key"
-   - Give it a name (e.g., "my-dream-stories")
-   - Copy the API key immediately (it won't be shown again)
-
-4. **Add the API Key to your app**
-   - Open `lib/config/api_config.dart`
-   - Replace `YOUR_STORY_GENERATION_API_KEY_HERE` with your API key
-
-**Pricing**: Pay-as-you-go. GPT-3.5-Turbo is more affordable, GPT-4 is more capable. See [pricing details](https://openai.com/pricing).
-
-### Option C: Other Alternatives
-
-- **Anthropic Claude**: https://www.anthropic.com/api
-- **Cohere**: https://cohere.ai/
-- **Hugging Face**: https://huggingface.co/inference-api
+**Completed Response**:
+```json
+{
+  "done": true,
+  "response": {
+    "videoSamples": [{
+      "videoUri": "https://generativelanguage.googleapis.com/v1beta/files/xyz/video.mp4"
+    }]
+  }
+}
+```
 
 ---
 
-## 3. Text+Image to Video API Setup
+## 2. Razorpay Setup (Required for Payments)
 
-### Option A: Runway ML
+Razorpay provides payment processing capabilities for premium features.
 
-Runway ML offers AI-powered video generation from text and images.
+### Steps:
 
-#### Steps:
-
-1. **Create a Runway Account**
-   - Go to [Runway ML](https://runwayml.com/)
+1. **Create a Razorpay Account**
+   - Visit [Razorpay Dashboard](https://dashboard.razorpay.com/)
    - Sign up for an account
+   - Complete KYC verification (for live mode)
 
-2. **Subscribe to a Plan**
-   - Runway requires a subscription for API access
-   - Go to [Pricing](https://runwayml.com/pricing)
-   - Choose a plan (Standard or Pro)
+2. **Get API Keys**
+   - Go to Settings → API Keys
+   - Generate Test Mode keys for development
+   - Copy the Key ID (starts with `rzp_test_`)
 
-3. **Get Your API Key**
-   - Log in to your Runway account
-   - Go to [API Settings](https://app.runwayml.com/settings/api)
-   - Generate an API key
-   - Copy the API key
+3. **Add the API Key to your app**
+   - Open `lib/api_keys.dart`
+   - Replace `YOUR_RAZORPAY_KEY_ID_HERE` with your key
 
-4. **Add the API Key to your app**
-   - Open `lib/config/api_config.dart`
-   - Replace `YOUR_TEXT_IMAGE_TO_VIDEO_API_KEY_HERE` with your API key
+**Pricing**: 
+- Test mode is free
+- Live mode has transaction fees (typically 2% + ₹0)
+- See [pricing details](https://razorpay.com/pricing/)
 
-**Pricing**: Starts at $12/month. Includes credits for video generation. See [pricing details](https://runwayml.com/pricing).
-
-### Option B: Stability AI
-
-Stability AI (makers of Stable Diffusion) also offers video generation capabilities.
-
-#### Steps:
-
-1. **Get a Stability AI API Key**
-   - Go to [Stability AI Platform](https://platform.stability.ai/)
-   - Sign up or log in
-   - Go to [API Keys](https://platform.stability.ai/account/keys)
-   - Generate a new API key
-   - Copy the key
-
-2. **Add the API Key to your app**
-   - Open `lib/config/api_config.dart`
-   - Replace `YOUR_TEXT_IMAGE_TO_VIDEO_API_KEY_HERE` with your API key
-
-**Pricing**: Pay-as-you-go with credits. See [pricing details](https://platform.stability.ai/pricing).
-
-**API Endpoint**: Update the endpoint in `api_config.dart`:
-```dart
-static const String textImageToVideoEndpoint = 'https://api.stability.ai/v2alpha/generation/text-to-video';
-```
-
-### Option C: Other Alternatives
-
-- **D-ID**: https://www.d-id.com/ (Talking head videos)
-- **Synthesia**: https://www.synthesia.io/ (AI video generation)
-- **Pictory AI**: https://pictory.ai/ (Text to video)
+**Important Notes**:
+- Use Test mode during development
+- Switch to Live mode only when ready for production
+- Never commit API keys to version control
 
 ---
 
@@ -182,33 +143,37 @@ static const String textImageToVideoEndpoint = 'https://api.stability.ai/v2alpha
 
 After obtaining your API keys, configure them in your app:
 
-1. **Open the API config file**:
+1. **Open the API keys file**:
    ```
-   lib/config/api_config.dart
+   lib/api_keys.dart
    ```
 
 2. **Replace the placeholder values**:
    ```dart
-   static const String speechToTextApiKey = 'your-actual-key-here';
-   static const String storyGenerationApiKey = 'your-actual-key-here';
-   static const String textImageToVideoApiKey = 'your-actual-key-here';
+   class ApiKeys {
+     // Google Gemini API Key
+     // Used for both AI story generation AND video generation (Veo 3.1)
+     static const String geminiApiKey = "YOUR_ACTUAL_GEMINI_KEY_HERE";
+     
+     // Razorpay Test Key
+     static const String razorpayKeyId = "rzp_test_YOUR_ACTUAL_KEY_HERE";
+     
+     // Optional: OpenAI API Key (if you want to use GPT for story generation)
+     static const String openAiApiKey = "YOUR_OPENAI_KEY_HERE";
+   }
    ```
 
-3. **Update endpoints if needed**:
-   - The default endpoints are set for Google Cloud Speech-to-Text, OpenAI GPT, and Runway ML
-   - If using different providers, update the endpoint URLs accordingly
-
-4. **Verify configuration**:
-   - The app includes helper methods to check if keys are configured
-   - Use `ApiConfig.areApiKeysConfigured` to check status
-   - Use `ApiConfig.getValidationErrors()` to see which keys are missing
+3. **Verify configuration**:
+   - Run the app and test story generation
+   - Test video generation with a simple prompt
+   - Verify that API calls are successful
 
 ---
 
 ## Security Best Practices
 
 1. **Never commit API keys to version control**
-   - The `api_config.dart` file is already in `.gitignore`
+   - The `api_keys.dart` file is already in `.gitignore`
    - Always use the example file to track config structure
 
 2. **Use environment variables** (for production):
@@ -221,7 +186,8 @@ After obtaining your API keys, configure them in your app:
    - Set usage limits to prevent unexpected charges
 
 4. **Monitor usage**:
-   - Regularly check your API usage in each provider's console
+   - Regularly check your API usage in Google AI Studio
+   - Check Razorpay dashboard for payment activity
    - Set up billing alerts to avoid unexpected charges
 
 5. **Rotate keys regularly**:
@@ -233,20 +199,21 @@ After obtaining your API keys, configure them in your app:
 ## Cost Optimization Tips
 
 1. **Use free tiers wisely**:
-   - Google Gemini offers generous free tier for story generation
-   - Google Speech-to-Text offers 60 minutes free per month
+   - Google Gemini offers generous free tier for both story and video generation
+   - Monitor your usage to stay within free tier limits
 
 2. **Cache results**:
    - Store generated stories to avoid regenerating the same content
-   - Cache speech-to-text results
+   - Cache video generation results when possible
 
-3. **Batch requests**:
-   - Combine multiple requests when possible
-   - Some providers offer discounts for bulk usage
+3. **Optimize prompts**:
+   - Use clear, concise prompts to reduce generation time
+   - Test prompts to ensure they produce desired results
 
-4. **Choose appropriate models**:
-   - Use GPT-3.5-Turbo instead of GPT-4 for cost savings
-   - Use smaller models when high quality isn't critical
+4. **Monitor video generation**:
+   - Video generation can be resource-intensive
+   - Consider implementing rate limiting for users
+   - Track generation costs and adjust pricing accordingly
 
 ---
 
@@ -260,24 +227,49 @@ After obtaining your API keys, configure them in your app:
    - Verify the key hasn't been deleted or restricted
 
 2. **"Quota exceeded" error**:
-   - Check your usage limits in the provider's console
+   - Check your usage limits in Google AI Studio
    - Upgrade your plan or wait for quota reset
+   - Consider implementing rate limiting
 
 3. **"Billing not enabled" error**:
    - Some services require billing to be set up
    - Add a payment method even if using free tier
 
-4. **Request timeout**:
-   - Video generation can take time
-   - Implement appropriate timeout handling in your app
-   - Consider using webhooks for long-running operations
+4. **Video generation timeout**:
+   - Veo 3.1 Fast typically takes 30-120 seconds
+   - Implement appropriate timeout handling (2-3 minutes)
+   - Check operation status regularly (every 10 seconds)
+
+5. **Video URI not found**:
+   - Ensure the operation is marked as "done"
+   - Check both possible URI locations in the response
+   - Verify API key has proper permissions
+
+---
+
+## Alternative Services (Optional)
+
+If you want to use different services:
+
+### For Story Generation:
+- **OpenAI GPT**: https://platform.openai.com/
+- **Anthropic Claude**: https://www.anthropic.com/api
+- **Cohere**: https://cohere.ai/
+
+### For Video Generation:
+- **Runway ML**: https://runwayml.com/ (previous service)
+- **Stability AI**: https://platform.stability.ai/
+- **D-ID**: https://www.d-id.com/
+
+**Note**: Using alternative services will require code modifications in the respective service files.
 
 ---
 
 ## Need Help?
 
 If you encounter issues:
-- Check the official documentation for each API provider
+- Check the official [Google AI documentation](https://ai.google.dev/docs)
+- Review [Razorpay documentation](https://razorpay.com/docs/)
 - Review error messages carefully
 - Contact the provider's support team
 - Ask in relevant developer communities
@@ -289,7 +281,8 @@ If you encounter issues:
 Once you have configured all API keys:
 1. Run `flutter clean`
 2. Run `flutter pub get`
-3. Run the app and test each feature
-4. Monitor API usage and costs
+3. Run the app and test story generation
+4. Test video generation with a simple prompt
+5. Monitor API usage and costs
 
 Happy building! 🚀

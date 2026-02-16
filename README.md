@@ -7,7 +7,7 @@ An AI-powered Flutter application that transforms your creative ideas into engag
 - 🎤 **Voice-to-Text Input** - Record your story ideas using speech recognition
 - ✍️ **Text Input** - Type your story prompts directly
 - 🤖 **AI Story Generation** - Powered by Google Gemini AI for creative story enhancement
-- 🎬 **Video Creation** - Automated video generation from stories using Runway ML
+- 🎬 **Video Creation** - Automated video generation using Google Veo 3.1 Fast model
 - 🔐 **User Authentication** - Secure Firebase authentication
 - 💾 **Cloud Storage** - Store and manage your stories in Firebase Firestore
 - 💳 **Payment Integration** - Razorpay integration for premium features
@@ -49,13 +49,13 @@ Create a new file at `lib/api_keys.dart` with the following structure:
 // DO NOT COMMIT THIS FILE TO VERSION CONTROL
 
 class ApiKeys {
-  // Google Gemini API Key for AI story generation
+  // Google Gemini API Key for Prompt/Story Generation
   // Get your key from: https://makersuite.google.com/app/apikey
-  static const String geminiApiKey = "YOUR_GEMINI_API_KEY_HERE";
-  
-  // Runway ML API Key for video generation
-  // Get your key from: https://app.runwayml.com/settings/api
-  static const String runwayApiKey = "YOUR_RUNWAY_API_KEY_HERE";
+  static const String geminiPromptApiKey = "YOUR_GEMINI_PROMPT_KEY_HERE";
+
+  // Google Gemini API Key for Video Generation (Veo 3.1)
+  // Get your key from: https://makersuite.google.com/app/apikey
+  static const String geminiVideoApiKey = "YOUR_GEMINI_VIDEO_KEY_HERE";
   
   // Razorpay API Key for payments (Test or Live)
   // Get your key from: https://dashboard.razorpay.com/app/keys
@@ -68,23 +68,21 @@ class ApiKeys {
 
 > **⚠️ IMPORTANT**: The `lib/api_keys.dart` file is already added to `.gitignore` and should **NEVER** be committed to version control.
 
+> **💡 TIP**: You can use the same Gemini API key for both `geminiPromptApiKey` and `geminiVideoApiKey` if you prefer, or use separate keys for better quota management.
+
 #### Where to Get API Keys
 
-1. **Google Gemini API** (Required)
+1. **Google Gemini API Keys** (Required - 2 keys or use the same key twice)
    - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
    - Sign in with your Google account
    - Click "Get API key" or "Create API key"
-   - Copy the generated key and paste it in `api_keys.dart`
-   - **Free tier**: 60 requests per minute
+   - You can create two separate keys or use the same key for both:
+     - **Prompt Generation Key**: Used for AI story enhancement
+     - **Video Generation Key**: Used for Veo 3.1 Fast video creation
+   - Copy the generated key(s) and paste in `api_keys.dart`
+   - **Free tier**: 60 requests per minute per key
 
-2. **Runway ML API** (Required)
-   - Visit [Runway ML](https://runwayml.com/)
-   - Create an account and subscribe to a plan
-   - Go to [API Settings](https://app.runwayml.com/settings/api)
-   - Generate and copy your API key
-   - **Pricing**: Starts at $12/month with credits
-
-3. **Razorpay** (Required for payments)
+2. **Razorpay** (Required for payments)
    - Visit [Razorpay Dashboard](https://dashboard.razorpay.com/)
    - Create an account
    - Go to Settings → API Keys

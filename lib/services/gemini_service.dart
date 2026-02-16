@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../api_keys.dart';
 
 class GeminiService {
-  final String _apiKey = ApiKeys.geminiApiKey;
+  final String _apiKey = ApiKeys.geminiPromptApiKey;
   final String _baseUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
@@ -66,7 +66,7 @@ IMPORTANT: The output must be a single, highly detailed paragraph that combines 
           String generatedPrompt =
               data['candidates'][0]['content']['parts'][0]['text'];
 
-          // Runway API has a 1000 character limit, so we enforce 950 to be safe
+          // Veo API works best with prompts under 1000 characters, so we enforce 950 to be safe
           if (generatedPrompt.length > 950) {
             print(
               "⚠️ Prompt too long (${generatedPrompt.length} chars), truncating to 950...",

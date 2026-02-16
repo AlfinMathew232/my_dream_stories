@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
-import '../services/runway_service.dart';
+import '../services/veo_service.dart';
 import '../services/video_service.dart';
 import '../utils/app_theme.dart';
 
@@ -19,7 +19,7 @@ class _VideoBuilderPageState extends State<VideoBuilderPage> {
   String _statusMessage = 'Initializing...';
   String? _finalVideoUrl;
   Map<String, dynamic>? _args;
-  final RunwayService _runwayService = RunwayService();
+  final VeoService _veoService = VeoService();
   final VideoService _videoService = VideoService();
 
   @override
@@ -37,44 +37,55 @@ class _VideoBuilderPageState extends State<VideoBuilderPage> {
     if (user == null || _args == null) return;
 
     try {
-      // 1. Submit to Runway
-      await _updateStatus('Submitting to Runway AI...', 0.1);
-      final taskId = await _runwayService.generateVideo(
+      // 1. Submit to Google Veo 3.1 Fast
+      await _updateStatus('Submitting to Google Veo AI...', 0.1);
+      final operationName = await _veoService.generateVideo(
         prompt: _args!['prompt'] ?? 'A beautiful story video',
         duration: _args!['duration'] ?? 10,
-        ratio: _args!['ratio'] ?? '1280:720',
+        ratio: _args!['ratio'] ?? '16:9',
         seed: _args!['seed'],
       );
 
-      // Update Firestore with Runway task ID
+      // Update Firestore with Veo operation name
       if (_args!['videoId'] != null) {
         await _videoService.updateVideoStatus(
           videoId: _args!['videoId'],
           status: 'generating',
-          runwayTaskId: taskId,
+          taskId: operationName,
         );
       }
 
       // 2. Poll for Status
       bool isFinished = false;
+      int pollCount = 0;
       while (!isFinished) {
-        await Future.delayed(const Duration(seconds: 3));
-        final statusData = await _runwayService.checkTaskStatus(taskId);
-        final status = statusData['status'];
-        final progress = (statusData['progress'] ?? 0.0).toDouble();
+        await Future.delayed(const Duration(seconds: 10));
+        final statusData = await _veoService.checkTaskStatus(operationName);
+        final isDone = statusData['done'] ?? false;
+        pollCount++;
 
-        if (status == 'SUCCEEDED') {
-          isFinished = true;
-          _finalVideoUrl = statusData['output'][0];
-          await _updateStatus('Video Generated! Finalizing...', 0.8);
-        } else if (status == 'FAILED') {
+        if (isDone) {
+          // Extract video URI from response
+          final videoUri = _veoService.extractVideoUri(statusData);
+          if (videoUri != null) {
+            isFinished = true;
+            _finalVideoUrl = videoUri;
+            await _updateStatus('Video Generated! Finalizing...', 0.8);
+          } else {
+            throw Exception(
+              'Video generation completed but no video URI found',
+            );
+          }
+        } else if (statusData['error'] != null) {
           throw Exception(
-            'Runway Generation Failed: ${statusData['failureCode']}',
+            'Veo Generation Failed: ${statusData['error']['message']}',
           );
         } else {
+          // Still processing
+          final progress = (pollCount * 0.05).clamp(0.0, 0.6);
           await _updateStatus(
-            'AI Rendering: ${status.toLowerCase()}...',
-            0.1 + (progress * 0.6),
+            'AI Rendering video... (${pollCount * 10}s)',
+            0.1 + progress,
           );
         }
       }
@@ -82,8 +93,8 @@ class _VideoBuilderPageState extends State<VideoBuilderPage> {
       // 3. Upload to Firebase Storage
       if (_finalVideoUrl != null) {
         await _updateStatus('Optimizing & Storing Video...', 0.9);
-        final firebaseRefUrl = await _runwayService.uploadToFirebase(
-          runwayUrl: _finalVideoUrl!,
+        final firebaseRefUrl = await _veoService.uploadToFirebase(
+          videoUri: _finalVideoUrl!,
           uid: user.uid,
           title: _args!['title'] ?? 'Untitled Video',
         );

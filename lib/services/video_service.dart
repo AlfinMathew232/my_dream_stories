@@ -39,7 +39,7 @@ class VideoService {
       'aspectRatio': aspectRatio,
       'aiGeneratedPrompt': aiGeneratedPrompt,
       'seed': seed,
-      'runwayTaskId': null,
+      'taskId': null, // Veo operation name or task ID
       'videoUrl': null,
       'status': 'generating',
       'createdAt': FieldValue.serverTimestamp(),
@@ -53,7 +53,7 @@ class VideoService {
   Future<void> updateVideoStatus({
     required String videoId,
     required String status,
-    String? runwayTaskId,
+    String? taskId,
     String? videoUrl,
   }) async {
     final updateData = {
@@ -61,8 +61,8 @@ class VideoService {
       'updatedAt': FieldValue.serverTimestamp(),
     };
 
-    if (runwayTaskId != null) {
-      updateData['runwayTaskId'] = runwayTaskId;
+    if (taskId != null) {
+      updateData['taskId'] = taskId;
     }
 
     if (videoUrl != null) {
