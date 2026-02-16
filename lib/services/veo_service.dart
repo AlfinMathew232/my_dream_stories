@@ -15,41 +15,76 @@ class VeoService {
     String ratio = "16:9",
     int? seed,
   }) async {
+    print('🎬 [VEO] Submitting video generation request...');
+    print('🎬 [VEO] Prompt length: ${prompt.length} characters');
+    print('🎬 [VEO] Duration: ${duration}s, Ratio: $ratio');
+
     final Map<String, dynamic> body = {
       "instances": [
         {"prompt": prompt},
       ],
     };
 
-    final response = await http.post(
-      Uri.parse('$_baseUrl/models/$_model:predictLongRunning'),
-      headers: {'x-goog-api-key': _apiKey, 'Content-Type': 'application/json'},
-      body: jsonEncode(body),
-    );
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final data = jsonDecode(response.body);
-      return data['name']; // Operation name (e.g., "operations/abc123")
-    } else {
-      throw Exception(
-        'Failed to submit Veo task: ${response.statusCode} - ${response.body}',
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/models/$_model:predictLongRunning'),
+        headers: {
+          'x-goog-api-key': _apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
       );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        final operationName = data['name'];
+        print('✅ [VEO] Video generation request submitted successfully!');
+        print('✅ [VEO] Operation name: $operationName');
+        return operationName;
+      } else {
+        print('❌ [VEO] Failed to submit video generation request');
+        print('❌ [VEO] Status code: ${response.statusCode}');
+        print('❌ [VEO] Response: ${response.body}');
+        throw Exception(
+          'Failed to submit Veo task: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      print('❌ [VEO] Exception during video generation request: $e');
+      rethrow;
     }
   }
 
   /// Polls the status of a Veo operation
   Future<Map<String, dynamic>> checkTaskStatus(String operationName) async {
-    final response = await http.get(
-      Uri.parse('$_baseUrl/$operationName'),
-      headers: {'x-goog-api-key': _apiKey},
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception(
-        'Failed to check Veo task status: ${response.statusCode} - ${response.body}',
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/$operationName'),
+        headers: {'x-goog-api-key': _apiKey},
       );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final isDone = data['done'] ?? false;
+
+        if (isDone) {
+          print('✅ [VEO] Video generation completed!');
+        } else {
+          print('⏳ [VEO] Video generation in progress...');
+        }
+
+        return data;
+      } else {
+        print('❌ [VEO] Failed to check task status');
+        print('❌ [VEO] Status code: ${response.statusCode}');
+        print('❌ [VEO] Response: ${response.body}');
+        throw Exception(
+          'Failed to check Veo task status: ${response.statusCode} - ${response.body}',
+        );
+      }
+    } catch (e) {
+      print('❌ [VEO] Exception during status check: $e');
+      rethrow;
     }
   }
 
@@ -60,13 +95,17 @@ class VeoService {
       return null;
     }
 
+    print('🔍 [VEO] Extracting video URI from response...');
+
     // Try to extract video URI from response
     try {
       // First attempt: videoSamples[0].videoUri
       if (statusResponse['response'] != null &&
           statusResponse['response']['videoSamples'] != null &&
           statusResponse['response']['videoSamples'].isNotEmpty) {
-        return statusResponse['response']['videoSamples'][0]['videoUri'];
+        final uri = statusResponse['response']['videoSamples'][0]['videoUri'];
+        print('✅ [VEO] Video URI found (videoSamples): $uri');
+        return uri;
       }
 
       // Second attempt: generateVideoResponse.generatedSamples[0].video.uri
@@ -76,10 +115,16 @@ class VeoService {
               null &&
           statusResponse['response']['generateVideoResponse']['generatedSamples']
               .isNotEmpty) {
-        return statusResponse['response']['generateVideoResponse']['generatedSamples'][0]['video']['uri'];
+        final uri =
+            statusResponse['response']['generateVideoResponse']['generatedSamples'][0]['video']['uri'];
+        print('✅ [VEO] Video URI found (generateVideoResponse): $uri');
+        return uri;
       }
+
+      print('❌ [VEO] Video URI not found in response');
+      print('❌ [VEO] Response structure: ${statusResponse.keys.toList()}');
     } catch (e) {
-      print('Error extracting video URI: $e');
+      print('❌ [VEO] Error extracting video URI: $e');
     }
 
     return null;
@@ -91,31 +136,90 @@ class VeoService {
     required String uid,
     required String title,
   }) async {
-    // 1. Download video bytes from Veo URI (with API key)
-    final videoResponse = await http.get(
-      Uri.parse(videoUri),
-      headers: {'x-goog-api-key': _apiKey},
-    );
+    try {
+      print('📥 [VEO] Starting video download from Veo...');
+      print('📥 [VEO] Video URI: $videoUri');
 
-    if (videoResponse.statusCode != 200) {
-      throw Exception(
-        'Failed to download video from Veo: ${videoResponse.statusCode}',
+      // 1. Download video bytes from Veo URI (with API key)
+      final videoResponse = await http.get(
+        Uri.parse(videoUri),
+        headers: {'x-goog-api-key': _apiKey},
       );
+
+      if (videoResponse.statusCode != 200) {
+        print('❌ [VEO] Failed to download video from Veo');
+        print('❌ [VEO] Status Code: ${videoResponse.statusCode}');
+        print('❌ [VEO] Response: ${videoResponse.body}');
+        throw Exception(
+          'Failed to download video from Veo: ${videoResponse.statusCode}',
+        );
+      }
+
+      final videoSize = videoResponse.bodyBytes.length;
+      print('✅ [VEO] Video downloaded successfully');
+      print(
+        '✅ [VEO] Video size: ${(videoSize / 1024 / 1024).toStringAsFixed(2)} MB',
+      );
+
+      // 2. Upload to Firebase Storage
+      final fileName =
+          '${title.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final storagePath = 'videos/$uid/$fileName';
+
+      print('📤 [FIREBASE] Starting upload to Firebase Storage...');
+      print('📤 [FIREBASE] Path: $storagePath');
+      print('📤 [FIREBASE] File: $fileName');
+
+      final storageRef = FirebaseStorage.instance.ref().child(storagePath);
+
+      final uploadTask = storageRef.putData(
+        videoResponse.bodyBytes,
+        SettableMetadata(contentType: 'video/mp4'),
+      );
+
+      // Monitor upload progress
+      uploadTask.snapshotEvents.listen(
+        (TaskSnapshot snapshot) {
+          final progress =
+              (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          print(
+            '📤 [FIREBASE] Upload progress: ${progress.toStringAsFixed(1)}%',
+          );
+        },
+        onError: (error) {
+          print('❌ [FIREBASE] Upload error: $error');
+        },
+      );
+
+      final snapshot = await uploadTask;
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+
+      print('✅ [FIREBASE] Upload completed successfully!');
+      print('✅ [FIREBASE] Download URL: $downloadUrl');
+
+      return downloadUrl;
+    } catch (e, stackTrace) {
+      print('❌ [VEO/FIREBASE] Upload failed with error:');
+      print('❌ [VEO/FIREBASE] Error: $e');
+      print('❌ [VEO/FIREBASE] Stack trace: $stackTrace');
+
+      // Provide helpful error messages based on error type
+      if (e.toString().contains('Permission denied') ||
+          e.toString().contains('unauthorized') ||
+          e.toString().contains('403')) {
+        print('');
+        print('🔒 [FIREBASE] PERMISSION ERROR DETECTED!');
+        print(
+          '🔒 [FIREBASE] This is likely a Firebase Storage security rules issue.',
+        );
+        print(
+          '🔒 [FIREBASE] Please update your Firebase Storage rules to allow uploads.',
+        );
+        print('🔒 [FIREBASE] Path attempted: videos/$uid/');
+        print('');
+      }
+
+      rethrow;
     }
-
-    // 2. Upload to Firebase Storage
-    final fileName =
-        '${title.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.mp4';
-    final storageRef = FirebaseStorage.instance.ref().child(
-      'videos/$uid/$fileName',
-    );
-
-    final uploadTask = storageRef.putData(
-      videoResponse.bodyBytes,
-      SettableMetadata(contentType: 'video/mp4'),
-    );
-
-    final snapshot = await uploadTask;
-    return await snapshot.ref.getDownloadURL();
   }
 }

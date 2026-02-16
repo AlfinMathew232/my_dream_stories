@@ -37,6 +37,19 @@ class _VideoBuilderPageState extends State<VideoBuilderPage> {
     if (user == null || _args == null) return;
 
     try {
+      print('');
+      print('🎬═══════════════════════════════════════════════════════════');
+      print('🎬 STARTING VIDEO GENERATION PROCESS');
+      print('🎬═══════════════════════════════════════════════════════════');
+      print('User ID: ${user.uid}');
+      print('Video Title: ${_args!['title'] ?? 'Untitled'}');
+      print('Prompt: ${_args!['prompt'] ?? 'N/A'}');
+      print('Duration: ${_args!['duration'] ?? 10}s');
+      print('Ratio: ${_args!['ratio'] ?? '16:9'}');
+      print('Video ID: ${_args!['videoId'] ?? 'N/A'}');
+      print('🎬═══════════════════════════════════════════════════════════');
+      print('');
+
       // 1. Submit to Google Veo 3.1 Fast
       await _updateStatus('Submitting to Google Veo AI...', 0.1);
       final operationName = await _veoService.generateVideo(
@@ -127,10 +140,75 @@ class _VideoBuilderPageState extends State<VideoBuilderPage> {
           _isBuilding = false;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('');
+      print('═══════════════════════════════════════════════════════════');
+      print('❌ [VIDEO BUILDER] ERROR OCCURRED');
+      print('═══════════════════════════════════════════════════════════');
+      print('Error Type: ${e.runtimeType}');
+      print('Error Message: $e');
+      print('───────────────────────────────────────────────────────────');
+      print('Stack Trace:');
+      print(stackTrace);
+      print('═══════════════════════════════════════════════════════════');
+      print('');
+
+      // Provide specific error guidance
+      String errorGuidance = '';
+      if (e.toString().contains('Permission denied') ||
+          e.toString().contains('unauthorized') ||
+          e.toString().contains('403')) {
+        errorGuidance = '''
+🔒 FIREBASE STORAGE PERMISSION ERROR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This error occurs when Firebase Storage security rules block the upload.
+
+SOLUTION:
+1. Go to Firebase Console: https://console.firebase.google.com/
+2. Select your project
+3. Navigate to Storage → Rules
+4. Update rules to allow authenticated users to upload:
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /videos/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
+
+5. Click "Publish" to save the changes
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+''';
+      } else if (e.toString().contains('API key')) {
+        errorGuidance = '''
+🔑 API KEY ERROR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Check your API keys in lib/api_keys.dart:
+- Ensure geminiVideoApiKey is set correctly
+- Verify the key has access to Veo 3.1 Fast model
+- Check if the key is active in Google AI Studio
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+''';
+      } else if (e.toString().contains('network') ||
+          e.toString().contains('connection')) {
+        errorGuidance = '''
+🌐 NETWORK ERROR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Check your internet connection and try again.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+''';
+      }
+
+      if (errorGuidance.isNotEmpty) {
+        print(errorGuidance);
+      }
+
       if (mounted) {
         setState(() {
-          _statusMessage = 'Error: $e';
+          _statusMessage = 'Error: ${e.toString().split('\n').first}';
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

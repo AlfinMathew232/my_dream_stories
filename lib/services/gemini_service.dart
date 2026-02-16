@@ -28,7 +28,7 @@ Explanation Focus: $basicText
 ${duration != null ? '[Duration]: ${duration}s video' : ''}
 
 Video Style:
-High quality 3D animation,
+High quality 3D,
 Pixar-style rendering,
 smooth camera movement,
 soft studio lighting,
