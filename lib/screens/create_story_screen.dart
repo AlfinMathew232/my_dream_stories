@@ -29,7 +29,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   bool _useManualBackground = false;
   bool _useManualCharacter = false;
 
-  double _duration = 10.0; // Fixed assertion error (must be within [5, 10])
+  double _duration = 4.0; // Default to 4 seconds
 
   bool _isLoading = false;
   final GeminiService _geminiService = GeminiService();
@@ -40,8 +40,9 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is Map) {
-      if (_categoryController.text.isEmpty) {
-        _categoryController.text = args['categoryName'] ?? '';
+      if (_categoryController.text.isEmpty && args['categoryName'] != null) {
+        _categoryController.text = args['categoryName'];
+        _selectedCategory = args['categoryName']; // Also set the dropdown value
       }
     }
   }
@@ -309,110 +310,143 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text(
+          'Characters',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 12),
+
+        // 1. Predefined Selector
+        _buildFirestoreDropdown(
+          collection: 'characters',
+          label: 'Select Predefined Character',
+          icon: Icons.person_search,
+          value: null,
+          onChanged: (v) {
+            if (v != null) {
+              setState(() {
+                final index = _selectedCharacters.indexWhere(
+                  (c) => c['name'] == v,
+                );
+                if (index != -1) {
+                  _selectedCharacters[index]['quantity']++;
+                } else {
+                  _selectedCharacters.add({'name': v, 'quantity': 1});
+                }
+              });
+            }
+          },
+        ),
+
+        const SizedBox(height: 16),
+
+        // 2. Manual Character Input
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Characters',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            Expanded(
+              child: _buildTextField(
+                controller: _manualCharacterController,
+                label: 'Add Custom Character',
+                hint: 'e.g., A giant robot',
+                icon: Icons.person_add_alt_1,
+              ),
             ),
-            TextButton.icon(
-              onPressed: () =>
-                  setState(() => _useManualCharacter = !_useManualCharacter),
-              icon: Icon(_useManualCharacter ? Icons.list : Icons.edit),
-              label: Text(_useManualCharacter ? 'Predefined' : 'Manual'),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              onPressed: () {
+                if (_manualCharacterController.text.isNotEmpty) {
+                  setState(() {
+                    _selectedCharacters.add({
+                      'name': _manualCharacterController.text.trim(),
+                      'quantity': 1,
+                    });
+                    _manualCharacterController.clear();
+                  });
+                }
+              },
+              icon: const Icon(Icons.add),
+              style: IconButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
             ),
           ],
         ),
-        if (_useManualCharacter)
-          _buildTextField(
-            controller: _manualCharacterController,
-            label: 'Describe Characters',
-            hint: 'e.g., A small robot and its pilot',
-            icon: Icons.people,
-            maxLines: 2,
-          )
-        else ...[
-          _buildFirestoreDropdown(
-            collection: 'characters',
-            label: 'Add Character',
-            icon: Icons.person_add,
-            value: null,
-            onChanged: (v) {
-              if (v != null) {
-                setState(() {
-                  final index = _selectedCharacters.indexWhere(
-                    (c) => c['name'] == v,
-                  );
-                  if (index != -1) {
-                    _selectedCharacters[index]['quantity']++;
-                  } else {
-                    _selectedCharacters.add({'name': v, 'quantity': 1});
-                  }
-                });
-              }
-            },
+
+        const SizedBox(height: 16),
+
+        // 3. Selected Characters List (Always Visible)
+        if (_selectedCharacters.isNotEmpty) ...[
+          const Text(
+            'Selected Characters:',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey,
+            ),
           ),
-          if (_selectedCharacters.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            ..._selectedCharacters.map((char) {
-              return Card(
-                elevation: 0,
-                color: Colors.grey[100],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+          const SizedBox(height: 8),
+          ..._selectedCharacters.map((char) {
+            return Card(
+              elevation: 0,
+              color: Colors.blue.withOpacity(0.1),
+              margin: const EdgeInsets.only(bottom: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          char['name'],
-                          style: const TextStyle(fontWeight: FontWeight.w500),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        char['name'],
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () {
+                        setState(() {
+                          if (char['quantity'] > 1) {
+                            char['quantity']--;
+                          } else {
+                            _selectedCharacters.remove(char);
+                          }
+                        });
+                      },
+                      icon: const Icon(Icons.remove_circle_outline, size: 20),
+                      color: Colors.red[400],
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        '${char['quantity']}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
                       ),
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            if (char['quantity'] > 1) {
-                              char['quantity']--;
-                            } else {
-                              _selectedCharacters.remove(char);
-                            }
-                          });
-                        },
-                        icon: const Icon(Icons.remove_circle_outline, size: 20),
-                        color: Colors.red[400],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text(
-                          '${char['quantity']}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          setState(() {
-                            char['quantity']++;
-                          });
-                        },
-                        icon: const Icon(Icons.add_circle_outline, size: 20),
-                        color: Colors.green[400],
-                      ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      onPressed: () => setState(() => char['quantity']++),
+                      icon: const Icon(Icons.add_circle_outline, size: 20),
+                      color: Colors.green[400],
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ),
-              );
-            }).toList(),
-          ],
+              ),
+            );
+          }).toList(),
         ],
       ],
     );
@@ -554,7 +588,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
   }
 
   Widget _buildDurationSelector() {
-    final durations = [5, 8, 10];
+    final durations = [4, 6, 8];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -573,6 +607,7 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
                 label: Text('${d}s'),
                 selected: isSelected,
                 selectedColor: AppTheme.primaryColor,
+                backgroundColor: Colors.grey[100],
                 labelStyle: TextStyle(
                   color: isSelected ? Colors.white : Colors.black,
                   fontWeight: FontWeight.bold,
@@ -601,14 +636,15 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
       charInfo = _manualCharacterController.text;
     } else {
       if (_selectedCharacters.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select at least one character')),
-        );
-        return;
+        // Allow creating without specific characters if user desires (Video AI can hallucinate/infer them)
+        // Or if you want to enforce at least one, keep the check.
+        // User asked to make it NOT mandatory.
+        charInfo = "None specified";
+      } else {
+        charInfo = _selectedCharacters
+            .map((c) => "${c['name']} (${c['quantity']})")
+            .join(", ");
       }
-      charInfo = _selectedCharacters
-          .map((c) => "${c['name']} (${c['quantity']})")
-          .join(", ");
     }
 
     if (bg.isEmpty) {
@@ -651,9 +687,19 @@ class _CreateStoryScreenState extends State<CreateStoryScreen> {
           value: _selectedRatio,
           onChanged: (v) => setState(() => _selectedRatio = v!),
           items: ratios.map((r) {
+            final isLandscape = r['value'] == '1280:720';
             return DropdownMenuItem(
               value: r['value'],
-              child: Text(r['label']!),
+              child: Row(
+                children: [
+                  Icon(
+                    isLandscape ? Icons.crop_landscape : Icons.crop_portrait,
+                    color: Colors.grey[700],
+                  ),
+                  const SizedBox(width: 10),
+                  Text(r['label']!),
+                ],
+              ),
             );
           }).toList(),
           decoration: InputDecoration(

@@ -36,7 +36,8 @@ class DatabaseService {
   }) async {
     await _db.collection('videos').add({
       'userId': uid,
-      'title': title,
+      'videoTitle':
+          title, // Changed from 'title' to 'videoTitle' to match VideoService
       'category': category,
       'description': description,
       'characterId': characterId,
@@ -110,6 +111,11 @@ class DatabaseService {
         .collection('users')
         .where('role', isNotEqualTo: 'admin')
         .snapshots();
+  }
+
+  // Delete Video
+  Future<void> deleteVideo(String videoId) async {
+    await _db.collection('videos').doc(videoId).delete();
   }
 
   // Update User Profile

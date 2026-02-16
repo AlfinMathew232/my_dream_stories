@@ -28,15 +28,15 @@ Explanation Focus: $basicText
 ${duration != null ? '[Duration]: ${duration}s video' : ''}
 
 Video Style:
-High quality 3D,
-Pixar-style rendering,
+High quality 3D or Realistic (based on category context),
 smooth camera movement,
 soft studio lighting,
 4K resolution,
 cinematic composition,
 professional educational tone.
+(Use realistic style unless the category explicitly suggests animation/cartoon)
 
-IMPORTANT: The output must be a single, highly detailed paragraph that combines all these elements into a coherent scene description suitable for advanced AI video generation tools. Keep it concise and under 900 characters.
+IMPORTANT: The output must be a single, highly detailed paragraph that combines all these elements into a coherent scene description suitable for advanced AI video generation tools. 
 """;
 
     try {
@@ -67,12 +67,12 @@ IMPORTANT: The output must be a single, highly detailed paragraph that combines 
               data['candidates'][0]['content']['parts'][0]['text'];
 
           // Veo API works best with prompts under 1000 characters, so we enforce 950 to be safe
-          if (generatedPrompt.length > 950) {
-            print(
-              "⚠️ Prompt too long (${generatedPrompt.length} chars), truncating to 950...",
-            );
-            generatedPrompt = generatedPrompt.substring(0, 950);
-          }
+          // if (generatedPrompt.length > 950) {
+          //   print(
+          //     "⚠️ Prompt too long (${generatedPrompt.length} chars), truncating to 950...",
+          //   );
+          //   generatedPrompt = generatedPrompt.substring(0, 950);
+          // }
 
           return generatedPrompt;
         } else {

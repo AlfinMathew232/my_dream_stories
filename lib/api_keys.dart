@@ -13,7 +13,7 @@ class ApiKeys {
       "AIzaSyASr-dcO_m7_fL5wlsntLHeBCK2TBCjrnE";
 
   // Razorpay Test Key
-  static const String razorpayKeyId = "rzp_test_1DP5mmOlF5G5ag";
+  static const String razorpayKeyId = "rzp_test_SGj2BpePQkXNDg";
 
   // Optional: OpenAI API Key (if you want to use GPT for story generation)
   static const String openAiApiKey = "YOUR_OPENAI_KEY_HERE";

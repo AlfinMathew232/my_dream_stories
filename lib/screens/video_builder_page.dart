@@ -22,13 +22,18 @@ class _VideoBuilderPageState extends State<VideoBuilderPage> {
   final VeoService _veoService = VeoService();
   final VideoService _videoService = VideoService();
 
+  bool _hasStarted = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_args == null) {
+    if (_args == null && !_hasStarted) {
       _args =
           ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      _startBuildProcess();
+      if (_args != null) {
+        _hasStarted = true;
+        _startBuildProcess();
+      }
     }
   }
 
@@ -72,7 +77,7 @@ class _VideoBuilderPageState extends State<VideoBuilderPage> {
       bool isFinished = false;
       int pollCount = 0;
       while (!isFinished) {
-        await Future.delayed(const Duration(seconds: 10));
+        await Future.delayed(const Duration(seconds: 15));
         final statusData = await _veoService.checkTaskStatus(operationName);
         final isDone = statusData['done'] ?? false;
         pollCount++;
@@ -112,20 +117,20 @@ class _VideoBuilderPageState extends State<VideoBuilderPage> {
           title: _args!['title'] ?? 'Untitled Video',
         );
 
-        // 4. Save to Firestore
-        await _updateStatus('Saving to Database...', 0.95);
-        await DatabaseService().createVideoRecord(
-          uid: user.uid,
-          title: _args!['title'] ?? 'Untitled Video',
-          category: _args!['category'] ?? 'General',
-          description: _args!['description'] ?? '',
-          characterId: _args!['characters'] ?? '',
-          backgroundId: _args!['background'] ?? '',
-          videoUrl: firebaseRefUrl,
-        );
-
-        // Update video status in Firestore
-        if (_args!['videoId'] != null) {
+        // 4. Save to Firestore (Only if new video)
+        if (_args!['videoId'] == null) {
+          await _updateStatus('Saving to Database...', 0.95);
+          await DatabaseService().createVideoRecord(
+            uid: user.uid,
+            title: _args!['title'] ?? 'Untitled Video',
+            category: _args!['category'] ?? 'General',
+            description: _args!['description'] ?? '',
+            characterId: _args!['characters'] ?? '',
+            backgroundId: _args!['background'] ?? '',
+            videoUrl: firebaseRefUrl,
+          );
+        } else {
+          // Update video status in Firestore
           await _videoService.updateVideoStatus(
             videoId: _args!['videoId'],
             status: 'completed',
