@@ -46,3 +46,4 @@ app.*.map.json
 
 # API Keys - Do not commit sensitive data
 lib/config/api_config.dart
+lib/api_keys.dart
