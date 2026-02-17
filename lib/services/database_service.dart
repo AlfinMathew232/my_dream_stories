@@ -85,24 +85,34 @@ class DatabaseService {
 
   // Admin: get dashboard stats
   Future<Map<String, dynamic>> getDashboardStats() async {
-    final usersCount = await _db
-        .collection('users')
-        .where('role', isNotEqualTo: 'admin')
-        .get();
+    try {
+      // Fetch all users and filter in memory to avoid Firestore index issues
+      final allUsers = await _db.collection('users').get();
+      final usersDocs = allUsers.docs
+          .where((doc) => doc.data()['role'] != 'admin')
+          .toList();
+      final proDocs = usersDocs
+          .where((doc) => doc.data()['isPro'] == true)
+          .toList();
 
-    final proCount = await _db
-        .collection('users')
-        .where('role', isNotEqualTo: 'admin')
-        .where('isPro', isEqualTo: true)
-        .get();
+      final videosCount = await _db.collection('videos').get();
+      final categoriesCount = await _db.collection('categories').get();
+      final charactersCount = await _db.collection('characters').get();
+      final backgroundsCount = await _db.collection('backgrounds').get();
 
-    final videosCount = await _db.collection('videos').get();
-
-    return {
-      'totalUsers': usersCount.docs.length,
-      'proMembers': proCount.docs.length,
-      'videosCreated': videosCount.docs.length,
-    };
+      return {
+        'totalUsers': usersDocs.length,
+        'proMembers': proDocs.length,
+        'videosCreated': videosCount.docs.length,
+        'totalCategories': categoriesCount.docs.length,
+        'totalCharacters': charactersCount.docs.length,
+        'totalBackgrounds': backgroundsCount.docs.length,
+      };
+    } catch (e) {
+      print('Error fetching dashboard stats: $e');
+      // Return empty stats or rethrow depending on needs. modified: rethrow to show in UI
+      rethrow;
+    }
   }
 
   // Admin: get all users with their subscription status

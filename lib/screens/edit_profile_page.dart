@@ -1,5 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../services/auth_service.dart';
 import '../../services/database_service.dart';
 import '../../utils/app_theme.dart';
@@ -16,8 +20,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _passwordController = TextEditingController();
+
   bool _isLoading = false;
   bool _isPasswordVisible = false;
+
+  File? _imageFile;
+  String? _currentImageUrl;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -34,8 +43,28 @@ class _EditProfilePageState extends State<EditProfilePage> {
         setState(() {
           _firstNameController.text = userModel.firstName;
           _lastNameController.text = userModel.lastName;
+          _currentImageUrl = userModel.profileImageUrl;
         });
       }
+    }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70, // Optimize image size
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          _imageFile = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error picking image: $e')));
     }
   }
 
@@ -57,10 +86,24 @@ class _EditProfilePageState extends State<EditProfilePage> {
       final user = authService.user;
 
       if (user != null) {
+        String? imageUrl = _currentImageUrl;
+
+        // Upload Profile Image if selected
+        if (_imageFile != null) {
+          final storageRef = FirebaseStorage.instance
+              .ref()
+              .child('profile_images')
+              .child('${user.uid}.jpg');
+
+          await storageRef.putFile(_imageFile!);
+          imageUrl = await storageRef.getDownloadURL();
+        }
+
         // Update Firestore
         await DatabaseService().updateUserProfile(user.uid, {
           'firstName': _firstNameController.text.trim(),
           'lastName': _lastNameController.text.trim(),
+          'profileImageUrl': imageUrl,
         });
 
         // Update Password if provided
@@ -108,6 +151,56 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Center(
+                      child: Stack(
+                        children: [
+                          GestureDetector(
+                            onTap: _pickImage,
+                            child: CircleAvatar(
+                              radius: 50,
+                              backgroundColor: Colors.grey[200],
+                              backgroundImage: _imageFile != null
+                                  ? FileImage(_imageFile!)
+                                  : (_currentImageUrl != null
+                                            ? CachedNetworkImageProvider(
+                                                _currentImageUrl!,
+                                              )
+                                            : null)
+                                        as ImageProvider?,
+                              child:
+                                  (_imageFile == null &&
+                                      _currentImageUrl == null)
+                                  ? const Icon(
+                                      Icons.person,
+                                      size: 50,
+                                      color: Colors.grey,
+                                    )
+                                  : null,
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: GestureDetector(
+                              onTap: _pickImage,
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.primaryColor,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
                     _buildTextField(
                       controller: _firstNameController,
                       label: 'First Name',

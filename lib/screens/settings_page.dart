@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/user_model.dart';
 import '../utils/app_theme.dart';
 
@@ -35,15 +36,11 @@ class SettingsPage extends StatelessWidget {
                       },
                     ),
                     _buildSettingItem(
-                      icon: Icons.language,
-                      title: 'Language',
-                      subtitle: 'English',
-                      onTap: () {},
-                    ),
-                    _buildSettingItem(
                       icon: Icons.security,
                       title: 'Privacy & Security',
-                      onTap: () {},
+                      onTap: () {
+                        Navigator.pushNamed(context, '/privacy-security');
+                      },
                     ),
 
                     const SizedBox(height: 24),
@@ -102,16 +99,21 @@ class SettingsPage extends StatelessWidget {
             CircleAvatar(
               radius: 30,
               backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-              child: Text(
-                user?.firstName.isNotEmpty == true
-                    ? user!.firstName[0].toUpperCase()
-                    : 'U',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
+              backgroundImage: user?.profileImageUrl != null
+                  ? CachedNetworkImageProvider(user!.profileImageUrl!)
+                  : null,
+              child: user?.profileImageUrl == null
+                  ? Text(
+                      user?.firstName.isNotEmpty == true
+                          ? user!.firstName[0].toUpperCase()
+                          : 'U',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(width: 16),
             Column(

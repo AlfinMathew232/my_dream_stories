@@ -29,69 +29,87 @@ class AdminDashboardPage extends StatelessWidget {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            FutureBuilder<Map<String, dynamic>>(
-              future: DatabaseService().getDashboardStats(),
-              builder: (context, snapshot) {
-                final stats =
-                    snapshot.data ??
-                    {
-                      'totalUsers': '-',
-                      'proMembers': '-',
-                      'videosCreated': '-',
-                    };
-                return _buildStatCard(stats);
-              },
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: DatabaseService().getDashboardStats(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+
+          final stats =
+              snapshot.data ??
+              {
+                'totalUsers': 0,
+                'proMembers': 0,
+                'videosCreated': 0,
+                'totalCategories': 0,
+                'totalCharacters': 0,
+                'totalBackgrounds': 0,
+              };
+
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                _buildStatCard(stats),
+                const SizedBox(height: 24),
+                Expanded(
+                  child: GridView.count(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    children: [
+                      _AdminCard(
+                        title: 'Manage Categories',
+                        subtitle: '${stats['totalCategories']} Categories',
+                        icon: Icons.category,
+                        color: Colors.blue,
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/admin/categories'),
+                      ),
+                      _AdminCard(
+                        title: 'Manage Characters',
+                        subtitle: '${stats['totalCharacters']} Characters',
+                        icon: Icons.people,
+                        color: Colors.purple,
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/admin/characters'),
+                      ),
+                      _AdminCard(
+                        title: 'Manage Backgrounds',
+                        subtitle: '${stats['totalBackgrounds']} Backgrounds',
+                        icon: Icons.image,
+                        color: Colors.teal,
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/admin/backgrounds'),
+                      ),
+                      _AdminCard(
+                        title: 'Users & Subscriptions',
+                        subtitle: '${stats['totalUsers']} Users',
+                        icon: Icons.supervised_user_circle,
+                        color: Colors.orange,
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/admin/users'),
+                      ),
+                      _AdminCard(
+                        title: 'Revenue Analysis',
+                        // subtitle: 'View Details',
+                        icon: Icons.analytics,
+                        color: Colors.green,
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/admin/analysis'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 24),
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                children: [
-                  _AdminCard(
-                    title: 'Manage Categories',
-                    icon: Icons.category,
-                    color: Colors.blue,
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/admin/categories'),
-                  ),
-                  _AdminCard(
-                    title: 'Manage Characters',
-                    icon: Icons.people,
-                    color: Colors.purple,
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/admin/characters'),
-                  ),
-                  _AdminCard(
-                    title: 'Manage Backgrounds',
-                    icon: Icons.image,
-                    color: Colors.teal,
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/admin/backgrounds'),
-                  ),
-                  _AdminCard(
-                    title: 'Users & Subscriptions',
-                    icon: Icons.supervised_user_circle,
-                    color: Colors.orange,
-                    onTap: () => Navigator.pushNamed(context, '/admin/users'),
-                  ),
-                  _AdminCard(
-                    title: 'Revenue Analysis',
-                    icon: Icons.analytics,
-                    color: Colors.green,
-                    onTap: () =>
-                        Navigator.pushNamed(context, '/admin/analysis'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -133,12 +151,14 @@ class AdminDashboardPage extends StatelessWidget {
 
 class _AdminCard extends StatelessWidget {
   final String title;
+  final String? subtitle;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
 
   const _AdminCard({
     required this.title,
+    this.subtitle,
     required this.icon,
     required this.color,
     required this.onTap,
@@ -178,6 +198,14 @@ class _AdminCard extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
           ],
         ),
       ),

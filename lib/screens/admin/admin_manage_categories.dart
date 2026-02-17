@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/database_service.dart';
 import '../../utils/app_theme.dart';
+import 'admin_generic_details_page.dart';
 
 class AdminManageCategoriesPage extends StatefulWidget {
   const AdminManageCategoriesPage({super.key});
@@ -67,29 +68,6 @@ class _AdminManageCategoriesPageState extends State<AdminManageCategoriesPage> {
     );
   }
 
-  void _deleteCategory(DocumentSnapshot doc) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Confirm Delete'),
-        content: const Text('Are you sure you want to delete this category?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              await doc.reference.delete();
-              if (context.mounted) Navigator.pop(context);
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,6 +100,19 @@ class _AdminManageCategoriesPageState extends State<AdminManageCategoriesPage> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AdminGenericDetailsPage(
+                          collectionName: 'categories',
+                          title: 'Edit Category',
+                          docId: docs[index].id,
+                          initialData: data,
+                        ),
+                      ),
+                    );
+                  },
                   leading: CircleAvatar(
                     backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
                     child: Text(
@@ -130,20 +121,12 @@ class _AdminManageCategoriesPageState extends State<AdminManageCategoriesPage> {
                     ),
                   ),
                   title: Text(data['name']),
-                  subtitle: Text(data['description'] ?? ''),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => _showAddEditDialog(doc: docs[index]),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _deleteCategory(docs[index]),
-                      ),
-                    ],
+                  subtitle: Text(
+                    data['description'] ?? '',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                 ),
               );
             },

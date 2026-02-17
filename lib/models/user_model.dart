@@ -8,7 +8,9 @@ class UserModel {
   final String role;
   final bool isPro;
   final DateTime? subscriptionExpiry;
+  final DateTime? subscriptionStartDate;
   final DateTime? createdAt;
+  final String? profileImageUrl;
 
   UserModel({
     required this.uid,
@@ -18,7 +20,9 @@ class UserModel {
     required this.role,
     required this.isPro,
     this.subscriptionExpiry,
+    this.subscriptionStartDate,
     this.createdAt,
+    this.profileImageUrl,
   });
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -33,9 +37,13 @@ class UserModel {
       subscriptionExpiry: data['subscriptionExpiry'] != null
           ? (data['subscriptionExpiry'] as Timestamp).toDate()
           : null,
+      subscriptionStartDate: data['subscriptionStartDate'] != null
+          ? (data['subscriptionStartDate'] as Timestamp).toDate()
+          : null,
       createdAt: data['createdAt'] != null
           ? (data['createdAt'] as Timestamp).toDate()
           : null,
+      profileImageUrl: data['profileImageUrl'],
     );
   }
 
@@ -47,7 +55,9 @@ class UserModel {
       'role': role,
       'isPro': isPro,
       'subscriptionExpiry': subscriptionExpiry,
+      'subscriptionStartDate': subscriptionStartDate,
       'createdAt': createdAt,
+      'profileImageUrl': profileImageUrl,
     };
   }
 }

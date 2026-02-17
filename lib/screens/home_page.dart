@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/user_model.dart';
 import '../utils/app_theme.dart';
 
@@ -138,8 +139,14 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
               CircleAvatar(
+                radius: 24,
                 backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                child: const Icon(Icons.person, color: AppTheme.primaryColor),
+                backgroundImage: userModel?.profileImageUrl != null
+                    ? CachedNetworkImageProvider(userModel!.profileImageUrl!)
+                    : null,
+                child: userModel?.profileImageUrl == null
+                    ? const Icon(Icons.person, color: AppTheme.primaryColor)
+                    : null,
               ),
             ],
           ),

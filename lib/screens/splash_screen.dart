@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/database_service.dart';
 import '../utils/app_theme.dart';
 
@@ -24,8 +23,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (!mounted) return;
 
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final user = authService.user;
+    final user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
       // User is logged in, check role/profile if needed to route to Admin
@@ -33,6 +31,31 @@ class _SplashScreenState extends State<SplashScreen> {
       final userModel = await dbService.getUser(user.uid);
 
       if (!mounted) return;
+
+      // Check Subscription Expiry
+      if (userModel != null &&
+          userModel.isPro &&
+          userModel.subscriptionExpiry != null) {
+        if (DateTime.now().isAfter(userModel.subscriptionExpiry!)) {
+          // Subscription Expired - Downgrade User
+          await dbService.updateUserProfile(user.uid, {
+            'isPro': false,
+            'subscriptionExpiry': null,
+            'subscriptionStartDate': null,
+          });
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Your Pro subscription has expired. You have been downgraded to the free plan.',
+                ),
+                duration: Duration(seconds: 5),
+              ),
+            );
+          }
+        }
+      }
 
       if (userModel?.role == 'admin') {
         Navigator.of(context).pushReplacementNamed('/admin');

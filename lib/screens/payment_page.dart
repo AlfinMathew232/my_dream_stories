@@ -151,6 +151,7 @@ class _PaymentPageState extends State<PaymentPage> {
       batch.update(userRef, {
         'isPro': true,
         'subscriptionExpiry': DateTime.now().add(const Duration(days: 30)),
+        'subscriptionStartDate': DateTime.now(),
       });
 
       batch.set(transRef, {
@@ -216,65 +217,185 @@ class _PaymentPageState extends State<PaymentPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Upgrade to Pro')),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
-            const Icon(Icons.star, size: 80, color: Colors.orange),
-            const SizedBox(height: 24),
-            const Text(
-              'Unlock Unlimited Creativity',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+    final user = Provider.of<AuthService>(context).user;
+
+    if (user == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final userData = snapshot.data!.data() as Map<String, dynamic>?;
+        final bool isPro = userData?['isPro'] ?? false;
+
+        if (isPro) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Pro Membership'),
+              backgroundColor: Colors.white,
+              foregroundColor: Colors.black,
+              elevation: 0,
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Create multiple videos per day, access exclusive assets, and remove watermarks.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
-            ),
-            const Spacer(),
-            const Divider(),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            backgroundColor: Colors.white,
+            body: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
-                    '1 Month Plan',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.star,
+                      size: 80,
+                      color: Colors.orange,
+                    ),
                   ),
+                  const SizedBox(height: 24),
                   const Text(
-                    '₹5',
+                    'You are a Pro Member!',
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.green,
+                      color: Colors.black87,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Enjoy unlimited access to all premium features.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 40),
+                  _buildProFeatureItem('✨ Unlimited AI Video Generation'),
+                  _buildProFeatureItem('🚫 No Watermark'),
+                  _buildProFeatureItem('🎨 Premium Assets & Styles'),
+                  _buildProFeatureItem('🚀 Priority Processing'),
+                  const Spacer(),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: const BorderSide(color: Colors.orange),
+                        foregroundColor: Colors.orange,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Go Back'),
                     ),
                   ),
                 ],
               ),
             ),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _handlePayment,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Pay & Upgrade Now'),
-              ),
+          );
+        }
+
+        return Scaffold(
+          appBar: AppBar(title: const Text('Upgrade to Pro')),
+          body: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                const Icon(Icons.star, size: 80, color: Colors.orange),
+                const SizedBox(height: 24),
+                const Text(
+                  'Unlock Unlimited Creativity',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Create multiple videos per day, access exclusive assets, and remove watermarks.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const Spacer(),
+                const Divider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        '1 Month Plan',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Text(
+                        '₹5',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _handlePayment,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                    ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text('Pay & Upgrade Now'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Secured by Razorpay (Test Mode)',
+                  style: TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'Secured by Razorpay (Test Mode)',
-              style: TextStyle(fontSize: 10, color: Colors.grey),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProFeatureItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: const BoxDecoration(
+              color: Colors.green,
+              shape: BoxShape.circle,
             ),
-          ],
-        ),
+            child: const Icon(Icons.check, size: 12, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+        ],
       ),
     );
   }

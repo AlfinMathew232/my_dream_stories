@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../utils/app_theme.dart';
+import 'admin_generic_details_page.dart';
 
 class AdminManageCharactersPage extends StatefulWidget {
   const AdminManageCharactersPage({super.key});
@@ -108,71 +109,71 @@ class _AdminManageCharactersPageState extends State<AdminManageCharactersPage> {
             itemCount: docs.length,
             itemBuilder: (context, index) {
               final data = docs[index].data() as Map<String, dynamic>;
-              return Card(
-                clipBehavior: Clip.antiAlias,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            data['description'] ?? 'No description',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontStyle: FontStyle.italic,
+              return InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AdminGenericDetailsPage(
+                        collectionName: 'characters',
+                        title: 'Edit Character',
+                        docId: docs[index].id,
+                        initialData: data,
+                      ),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Card(
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text(
+                              data['description'] ?? 'No description',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 4,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            textAlign: TextAlign.center,
-                            maxLines: 4,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        children: [
-                          Text(
-                            data['name'],
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.edit,
-                                  size: 20,
-                                  color: Colors.blue,
-                                ),
-                                onPressed: () =>
-                                    _showAddEditDialog(doc: docs[index]),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          children: [
+                            Text(
+                              data['name'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
                               ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete,
-                                  size: 20,
-                                  color: Colors.red,
-                                ),
-                                onPressed: () => docs[index].reference.delete(),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Tap to edit',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
                               ),
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               );
             },
