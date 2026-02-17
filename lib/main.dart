@@ -14,7 +14,7 @@ import 'screens/home_page.dart';
 import 'screens/select_category_page.dart';
 import 'screens/video_builder_page.dart';
 import 'screens/my_videos_page.dart';
-import 'screens/settings_page.dart'
+import 'screens/settings_page.dart';
 import 'screens/payment_page.dart';
 import 'screens/create_story_screen.dart';
 import 'screens/prompt_review_screen.dart';
